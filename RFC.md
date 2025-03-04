@@ -33,7 +33,8 @@ The Open Tool Calling Standard establishes a set of protocols and formats to fac
 
 ## 2. Terminology
 
-- **Agent:** An entity that issues requests to tools for performing specific tasks.
+[//]: # (Suggestion to rename agent to client since agents are mostly going to be using tools, but not creating them)
+- **Agent:** An entity that issues requests to tools for performing specific tasks. 
 - **Tool:** A service or function that can be invoked by an agent using the defined protocols.
 - **Schema:** A formal description of the data structure, typically expressed in JSON Schema, used to validate data formats.
 - **RFC:** Request for Comments; a document that describes methods, behaviors, research, or innovations applicable to the Internet.
@@ -43,6 +44,8 @@ The Open Tool Calling Standard establishes a set of protocols and formats to fac
 ---
 
 ## 3. Architecture Overview
+
+[//]: # (Need to document tool discovery and toolboxes as tool boxes define namespacing and will affect tool discovery API potentially)
 
 The Open Tool Calling Standard is designed around three key components:
 
@@ -79,21 +82,27 @@ sequenceDiagram
 
 ### 4.1 Tool Definition Schema
 
+[//]: # (We need to separate the request and the repsonse parts of the tool definition schema.)
+[//]: # (Would expect a POST requests against /tools with some payload to create a new tool, and a GET request against /tools/{tool_id} to get the tool definition.)
+
 The Tool Definition Schema establishes the properties and required fields to describe a tool. It consists of the following sections:
 
 - **Metadata:**
 
   - **`$schema`**: URI defining the JSON Schema version.
+  - **`id`**: A unique identifier for the tool.
   - **`name`**: A human-readable name for the tool.
-  - **`fully_qualified_name`**: A unique identifier for the tool.
-  - **`description`**: A human-readable explanation of the tool's purpose.
+  - **`description`**: A human-readable explanation of the tool's purpose. This field will be used by both humans and agents.
 
 - **Toolkit Information:**
 
+[//]: # (On the request side, could the client specify a toolkit ID/name to use?)
+[//]: # (On the request side, could the toolkit ID be optional? With server interpreting this some default toolkit?)
   - **`toolkit`**: Contains the toolkit’s name, description, and version.
 
 - **Input Schema:**
 
+[//]: # (Suggestion to use JSONSchema for the input and describe the input as a JSON object. This will look closer to openai / openapi specs.)
   - **`input`**: Describes the parameters accepted by the tool.
     - Each parameter includes:
       - **`name`**: Parameter name.
@@ -104,11 +113,14 @@ The Tool Definition Schema establishes the properties and required fields to des
 
 - **Output Schema:**
 
+[//]: # (The output schema could potentially also be described with JSONSchema. It will accommodate `description`, `title` etc.)
+
   - **`output`**: Specifies the expected result of the tool execution.
     - **`available_modes`**: A list of modes such as `value`, `error`, `artifact`, etc.
     - **`description`**: Human-readable explanation of the output.
     - **`value_schema`**: Defines the data type and structure of the output value.
 
+[//]: # (Could you expand on the requirements schema?)
 - **Requirements:**
   - **`requirements`**: Describes authorization or secret requirements.
     - **`secrets`**: Array of secret definitions.
@@ -124,18 +136,22 @@ The Tool Request Schema is designed to encapsulate the details of a tool invocat
 
 - **Run and Execution Identification:**
 
+[//]: # (Could we have the run_id be optional and if not provided, the server generates one?)
+[//]: # (It's not clear why two required identifiers are needed.)
   - **`run_id`**: Globally unique identifier for the overall run.
   - **`execution_id`**: Unique identifier for the specific tool execution.
-  - **`created_at`**: Timestamp indicating when the request was created.
 
 - **Tool Metadata:**
 
+[//]: # (This looks like a unique identifier for the tool. Perhaps we could rename as `id` or `tool_id`?)
   - **`tool`**: Contains the tool's name, the toolkit to which it belongs, and the toolkit version.
 
 - **Input Parameters:**
 
   - **`inputs`**: An object containing the parameters needed by the tool. This field supports additional properties to accommodate various tool-specific inputs.
 
+[//]: # (Could you document more about how the context is used? Why the different parts are needed?)
+[//]: # (In the event that the execution of the tool is hosted on the same server as the registry, why is any context needed?)
 - **Context:**
   - **`context`**: Provides additional execution context including:
     - **`authorization`**: Contains tokens for authentication.
@@ -153,10 +169,19 @@ The Tool Response Schema defines the structure of the data returned after a tool
 
 - **Execution Metadata:**
 
-  - **`execution_id`**: The globally unique execution identifier.
-  - **`duration`**: Execution time in milliseconds.
-  - **`finished_at`**: Timestamp marking the completion of the execution.
-  - **`success`**: Boolean flag indicating the success or failure of the execution.
+  - **`success`**: **REQUIRED** Boolean flag indicating the success or failure of the execution.
+  - **`execution_id`**: **REQUIRED** The globally unique execution identifier.
+[//]: # ( We could consider dropping both of these fields. The client can track duration and finished_at themselves. Those measurements incorporate round-trip time and any additional latency and in practice, that's what the client will care about.)
+  - **`duration`**: **Optional** Execution time in milliseconds.
+  - **`finished_at`**: **Optional** Timestamp marking the completion of the execution. In ISO-8601 format, must be UTC.
+
+[//]: # (The field `additional_prompt_content` is vague, specifically the "additional" part. How is a client supposed to use this?)
+[//]: # (For the spec, it would be helpful to include one example of `message` vs. `developer_message` in the context of an actual tool.)
+[//]: # (If an LLM generates invalid payload, would that be a `developer_message` or a `message`?)
+
+[//]: # (It would be good to docuemnt the AuthorizationResponse -- i.e., why it's needed and how a client is expected to use it.)
+[//]: # (What are the enum values of `status)
+
 
 - **Output Content:**
   The output can take one of several forms:
