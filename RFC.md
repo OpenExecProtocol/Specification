@@ -4,76 +4,77 @@
 
 ## Abstract
 
-This document specifies the Open Tool Calling Standard, a comprehensive communication layer for agents calling tools. It defines the structures and protocols used to describe tools, initiate tool calls, and process responses. The standard is based on a set of JSON schemas that govern tool definitions, tool requests, and tool responses. It aims to provide a unified, extensible, and interoperable framework for agent-to-tool interactions.
+This document specifies the Open Tool Calling (OTC) standard, a comprehensive communication protocol for AI agents (clients) calling tools. It defines the structures and protocols used to describe tools, initiate tool calls, and process responses. The standard is comprised of JSON and OpenAPI schemas that govern tool definitions, tool requests, and tool responses. It aims to provide a unified, extensible, and interoperable framework for client-to-tool interactions.
+
+## Editors
+
+- Nate Barbettini ([@nbarbettini](https://github.com/nbarbettini))
+- Eugene Yurtsev ([@eyurtsev](https://github.com/eyurtsev))
+- Sam Partee ([@spartee](https://github.com/spartee))
 
 ---
 
 ## Table of Contents
 
-1. [Introduction](#introduction)
-2. [Terminology](#terminology)
-3. [Architecture Overview](#architecture-overview)
-4. [Schema Definitions](#schema-definitions)
-   - [Tool Definition Schema](#tool-definition-schema)
-   - [Tool Request Schema](#tool-request-schema)
-   - [Tool Response Schema](#tool-response-schema)
-5. [Communication Flow](#communication-flow)
-6. [Security and Authorization](#security-and-authorization)
-7. [Extensibility and Versioning](#extensibility-and-versioning)
-8. [Conclusion](#conclusion)
-9. [References](#references)
+1. [Introduction](#1-introduction)
+2. [Terminology](#2-terminology)
+3. [Architecture Overview](#3-architecture-overview)
+4. [Schema Definitions](#4-schema-definitions)
+   - [Tool Definition Schema](#41-tool-definition-schema)
+   - [Tool Request Schema](#42-tool-request-schema)
+   - [Tool Response Schema](#43-tool-response-schema)
+5. [Communication Flows](#5-communication-flows)
+6. [Security and Authorization](#6-security-and-authorization)
+7. [Extensibility and Versioning](#7-extensibility-and-versioning)
+8. [Conclusion](#8-conclusion)
+9. [References](#9-references)
 
 ---
 
 ## 1. Introduction
 
-The Open Tool Calling Standard establishes a set of protocols and formats to facilitate communication between agents (clients) and tools (services) in distributed systems. It ensures that tool definitions, requests, and responses adhere to a structured and open standard. This RFC presents detailed JSON schema specifications that serve as the backbone for this standard, enabling uniform interpretation and execution of tool interactions.
-
----
+The Open Tool Calling standard establishes a set of protocols and formats to facilitate communication between agents (clients) and tools (functions or services) in distributed systems. It ensures that tool definitions, requests, and responses adhere to a structured and open standard. This RFC presents detailed JSON and OpenAPI schema specifications that serve as the backbone for this standard, enabling uniform interpretation and execution of tool interactions.
 
 ## 2. Terminology
 
-- **Agent:** An entity that issues requests to tools for performing specific tasks.
-- **Tool:** A service or function that can be invoked by an agent using the defined protocols.
+- **Client:** An entity that issues requests to tools for performing specific tasks.
+- **Tool:** A service or function that can be executed (called) by a client using the defined protocols.
 - **Schema:** A formal description of the data structure, typically expressed in JSON Schema, used to validate data formats.
-- **RFC:** Request for Comments; a document that describes methods, behaviors, research, or innovations applicable to the Internet.
 - **Toolkit:** A collection of tools grouped under a common framework and versioned accordingly.
 - **JSON Schema:** A vocabulary that allows you to annotate and validate JSON documents.
 
----
-
 ## 3. Architecture Overview
 
-The Open Tool Calling Standard is designed around three key components:
+The Open Tool Calling standard is designed around three key components:
 
-1. **Tool Definition:** A schema that specifies how a tool is described. It includes metadata such as the tool's name, fully qualified name, toolkit information, and the input/output specifications.
+1. **Tool Definition:** A schema that specifies how a tool is described. It includes metadata such as the tool's name, unique identifier, toolkit information, and the input/output specifications.
 2. **Tool Request:** A schema that details the structure of a tool call. It encompasses the run identifier, execution context, tool metadata, and input parameters.
 3. **Tool Response:** A schema that outlines the structure of the response returned after a tool execution. It provides details on execution status, duration, and the actual output (or errors) of the tool call.
 
-These components ensure consistent communication between agents and tools, regardless of the implementation details of each tool.
+These components ensure consistent communication between clients and tools, regardless of the implementation details of each tool.
 
 ```mermaid
 sequenceDiagram
-    participant A as Agent
-    participant R as Registry
+    participant C as Client
+    participant S as OTC Server
     participant T as Tool
 
-    %% Tool Registration
-    A->>R: Submit Tool Definition (JSON Schema)
-    R-->>A: Acknowledge Registration
+    ## Health check
+    C->>S: Request health check
+    S-->>C: Health check response
 
-    %% Tool Invocation
-    A->>T: Send Tool Request (run_id, execution_id, inputs, context)
-    T->>T: Validate Request & Process Execution
-    Note right of T: Includes authorization and secrets handling
-    T-->>A: Return Tool Response (success, value/error/artifact, duration)
+    %% Tool discovery
+    C->>S: Request tool list
+    S-->>C: List of available tools
 
-    %% Post Execution
-    A->>R: Optionally update tool status/log (if applicable)
+    %% Tool execution
+    C->>S: Send execution request
+    Note left of C: Resolve requirements (such as authorization)
+    S->>T: Execute tool (function)
+    T-->>S: Return tool response
+    S-->>C: Return tool response
 
 ```
-
----
 
 ## 4. Schema Definitions
 
@@ -81,71 +82,86 @@ sequenceDiagram
 
 The Tool Definition Schema establishes the properties and required fields to describe a tool. It consists of the following sections:
 
-- **Metadata:**
+#### Metadata
 
-  - **`$schema`**: URI defining the JSON Schema version.
-  - **`name`**: A human-readable name for the tool.
-  - **`fully_qualified_name`**: A unique identifier for the tool.
-  - **`description`**: A human-readable explanation of the tool's purpose.
+- **`id`**: A unique identifier for the tool, in the following format: `ToolkitName.ToolName@Version`. For example, `MyToolkit.MyTool@1.0.0`.
+- **`name`**: A human-readable name for the tool. For example, 'MyTool'.
+- **`description`**: A human-readable explanation of the tool's purpose. This field can be used by both humans and AI models.
 
-- **Toolkit Information:**
+#### Toolkit Information
 
-  - **`toolkit`**: Contains the toolkit’s name, description, and version.
+- **`toolkit`**: Contains the toolkit's name, description, and version.
 
-- **Input Schema:**
+#### Input Schema
 
-  - **`input`**: Describes the parameters accepted by the tool.
-    - Each parameter includes:
-      - **`name`**: Parameter name.
-      - **`required`**: Boolean indicating whether the parameter is mandatory.
-      - **`description`**: Explanation of the parameter.
-      - **`value_schema`**: Data type and structure details (including support for arrays with inner type definitions).
-      - **`inferrable`**: (Optional) Indicates if the value can be inferred automatically.
+**`input`**: Describes the input parameters for the tool.
 
-- **Output Schema:**
+- **`parameters`**: A JSON Schema object that describes the input parameters for the tool.
+- **`non_inferrable_parameters`** (optional): A list of parameter names that MUST NOT be inferred by a model. If this array is empty, it is assumed that all parameters are inferrable.
 
-  - **`output`**: Specifies the expected result of the tool execution.
-    - **`available_modes`**: A list of modes such as `value`, `error`, `artifact`, etc.
-    - **`description`**: Human-readable explanation of the output.
-    - **`value_schema`**: Defines the data type and structure of the output value.
+`non_inferrable_parameters` allows tool developers to "hide" certain parameters from an AI model. For example, a tool that has an `is_admin` parameter can indicate that this parameter is required but that a model should not be trusted to infer its value. In this case, the client is still responsible for passing the parameter.
 
-- **Requirements:**
-  - **`requirements`**: Describes authorization or secret requirements.
-    - **`secrets`**: Array of secret definitions.
-    - **`authorization`**: Specifies required authorization methods (e.g., token-based).
+#### Output Schema
 
-The complete JSON Schema ensures that every tool adheres to a well-defined structure, facilitating consistent tool registration and discovery.
+- **`output`** (optional): Specifies the expected result of the tool execution.
 
----
+  - **`available_modes`**: A list of modes such as `value`, `error`, `null`, etc. If `value` is present, the `output.value` field MUST be present.
+  - **`description`** (optional): Human-readable explanation of the output.
+  - **`value`** (optional): A JSON Schema object that describes the output parameters for the tool.
+
+#### Requirements
+
+**`requirements`** (optional): Describes any requirements or prerequisites needed for the tool to execute (e.g. authorization, secrets, etc.)
+
+The `requirements` field describes tool requirements that are not strictly input parameters, such as the API key needed to call a target API. If the `requirements` field is not present, the client must assume that the tool can be executed without passing any additional information.
+
+**`requirements.authorization`** (optional): Declares one or more required authorization methods.
+
+Each required authorization method is described as an object with the following properties:
+
+- **`id`**: A unique identifier for the authorization method or authorization provider.
+- **`oauth2`** (optional): For tools that require OAuth 2.0-based authorization, this field contains the OAuth 2.0-specific authorization details.
+  - **`scopes`**: A list of scopes that must be granted for the tool to execute properly.
+
+**`requirements.secrets`** (optional): Declares one or more secrets that are required for the tool to execute.
+
+Each required secret is described as an object with the following properties:
+
+- **`id`**: A unique identifier for the secret.
+
+#### Non-Normative Examples
+
+TODO
 
 ### 4.2 Tool Request Schema
 
-The Tool Request Schema is designed to encapsulate the details of a tool invocation:
+The Tool Request Schema is designed to encapsulate the details of a tool execution (tool call):
 
 - **Run and Execution Identification:**
 
-  - **`run_id`**: Globally unique identifier for the overall run.
-  - **`execution_id`**: Unique identifier for the specific tool execution.
-  - **`created_at`**: Timestamp indicating when the request was created.
+  - **`execution_id`**: Globally unique identifier for this tool execution.
+  - **`trace_id`** (optional): Unique identifier for the trace of the tool execution, if supplied by the client.
 
 - **Tool Metadata:**
 
-  - **`tool`**: Contains the tool's name, the toolkit to which it belongs, and the toolkit version.
+  - **`tool_id`**: The unique identifier of the tool to call.
 
 - **Input Parameters:**
 
-  - **`inputs`**: An object containing the parameters needed by the tool. This field supports additional properties to accommodate various tool-specific inputs.
+  - **`inputs`**: An unconstrained object containing the parameters needed by the tool.
 
 - **Context:**
   - **`context`**: Provides additional execution context including:
-    - **`authorization`**: Contains tokens for authentication.
-    - **`secrets`**: Secret information required for execution.
-    - **`user_id`**: Unique user identifier.
-    - **`user_info`**: Supplementary information provided by the authorization server.
+    - **`authorization`** (optional): Contains tokens for authentication.
+    - **`secrets`** (optional): Secret information required for execution.
+    - **`user_id`** (optional): Unique user identifier.
+    - **`user_info`** (optional): Supplementary information provided by the authorization server.
 
 This schema guarantees that every tool call is uniquely identifiable and that the necessary parameters and context for execution are clearly provided.
 
----
+#### Non-Normative Examples
+
+TODO
 
 ### 4.3 Tool Response Schema
 
@@ -154,9 +170,8 @@ The Tool Response Schema defines the structure of the data returned after a tool
 - **Execution Metadata:**
 
   - **`execution_id`**: The globally unique execution identifier.
-  - **`duration`**: Execution time in milliseconds.
-  - **`finished_at`**: Timestamp marking the completion of the execution.
   - **`success`**: Boolean flag indicating the success or failure of the execution.
+  - **`duration`** (optional): Execution time in milliseconds.
 
 - **Output Content:**
   The output can take one of several forms:
@@ -165,86 +180,218 @@ The Tool Response Schema defines the structure of the data returned after a tool
   2. **Error Response:**
      - Contains an `error` object with:
        - **`message`**: A user-facing error message.
-       - **`developer_message`**: Detailed error information for internal debugging.
-       - **`can_retry`**: Indicates if the request is retryable.
-       - **`additional_prompt_content`**: Extra content to be used for retry prompts.
-       - **`retry_after_ms`**: Suggested delay before retrying.
-  3. **Authorization Response:**
-     - Contains a `requires_authorization` object detailing:
-       - **`id`**: Identifier for tracking authorization status.
-       - **`url`**: Redirect URL for obtaining authorization.
-       - **`scopes`**: Array of authorization scopes required.
-       - **`status`**: Current authorization status.
-  4. **Artifact Response:**
-     - Contains an `artifact` object describing:
-       - **`url`**: Location of the stored artifact.
-       - **`content_type`**: MIME type of the artifact.
-       - **`size`**: Size of the artifact in bytes.
-       - **`meta`**: Metadata including a human-readable description.
+       - **`developer_message`** (optional): Detailed error information for internal debugging.
+       - **`can_retry`** (optional): Indicates if the request can be retried by the client. If unspecified, the client MUST assume the request cannot be retried (`false`).
+       - **`additional_prompt_content`** (optional): Extra content to be used for retry prompts.
+       - **`retry_after_ms`** (optional): Suggested delay before retrying.
 
 The Tool Response Schema ensures that every response provides clear and actionable information regarding the outcome of the tool call.
 
----
+#### Non-Normative Examples
 
-## 5. Communication Flow
+TODO
 
-1. **Tool Registration:**
+## 5. Communication Flows
 
-   - Tools register themselves using the Tool Definition Schema.
-   - Registries use this information for tool discovery and client-side validation.
+The Open Tool Calling (OTC) standard defines clear communication flows that enable clients to discover available tools and execute them. The flows below follow the definitions in the OpenAPI specification (`specification/http/1.0/openapi.json`), ensuring that all tool interactions are consistent, secure, and standardized.
 
-2. **Invocation:**
+### 5.1 Server Health Check
 
-   - An agent creates a tool request following the Tool Request Schema.
-   - The request includes necessary input parameters, context, and unique identifiers for tracking.
+An OTC server MUST implement a health check endpoint that returns a 200 OK response if the server is healthy.
 
-3. **Execution:**
+#### Flow Details:
 
-   - The tool processes the request based on its implementation and the provided schema.
-   - Execution metrics such as duration and timestamps are recorded.
+- **Request:**
+  - **Method:** GET
+  - **Endpoint:** `/health`
+- **Response:**
+  - **Status Code:** 200 OK
 
-4. **Response:**
-   - Upon completion, the tool returns a response conforming to the Tool Response Schema.
-   - The response provides either a successful output, an error, authorization instructions, or artifact information.
+### 5.2 Tool Discovery
 
----
+Clients retrieve tool definitions from the OTC server using the `/tools` endpoint. This flow provides a catalog of tools that clients can use, all of which conform to the `ToolDefinition` schema.
+
+#### Flow Details:
+
+- **Request:**
+  - **Method:** GET
+  - **Endpoint:** `/tools`
+  - **Security:** Servers MAY require bearer authentication (JWT). Servers that are internet-facing SHOULD require authentication.
+- **Response:**
+  - **Status Code:** 200 OK
+  - **Content:** A JSON object that includes a `$schema` URI reference (indicating the standard version) and a `tools` array. Each element in the array is a complete tool definition.
+
+#### Non-Normative Example: Tool Discovery
+
+**Request:**
+
+```http
+GET /tools HTTP/1.1
+Host: api.example.com
+Authorization: Bearer <JWT token>
+```
+
+**Response:**
+
+```json
+{
+  "$schema": "https://github.com/ArcadeAI/OpenToolCalling/tree/main/specification/http/1.0/openapi.json",
+  "tools": [
+    {
+      "id": "Calculator.Add@1.0.0",
+      "name": "Add",
+      "description": "Add two numbers together",
+      "toolkit": {
+        "name": "Calculator",
+        "description": "A toolkit for performing calculations.",
+        "version": "1.0.0"
+      },
+      "input": {
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "a": {
+              "type": "number",
+              "description": "The first number to add."
+            },
+            "b": {
+              "type": "number",
+              "description": "The second number to add."
+            }
+          }
+        },
+        "required": ["a", "b"]
+      },
+      "output": {
+        "available_modes": ["value", "error"],
+        "description": "The result produced by the tool.",
+        "value": {
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "result": {
+                "type": "number",
+                "description": "The sum of the two numbers."
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
+```
+
+### 5.2 Tool Execution
+
+Tool execution is initiated by sending a POST request to the `/execute` endpoint. This flow lets clients run a tool and receive its output, with the request and response bodies conforming to the `ExecuteToolRequest` and `ExecuteToolResponse` schemas.
+
+#### Flow Details:
+
+- **Request:**
+  - **Method:** POST
+  - **Endpoint:** `/execute`
+  - **Security:** Servers MAY require bearer authentication (JWT). Servers that are internet-facing SHOULD require authentication.
+  - **Payload:** A JSON document with two main parts:
+    - **`$schema` Field:** A URI reference to the standard.
+    - **`request` Object:** Includes:
+      - **`execution_id`** (required): A unique identifier for this execution.
+      - **`tool_id`** (required): The unique identifier of the tool to be executed.
+      - **`input`** (optional): An object providing the necessary input parameters.
+      - **`context`** (optional): An object containing authorization tokens, secrets (if any), and user-specific data.
+- **Response:**
+  - **Status Code:** 200 OK
+  - **Content:** A JSON document following the `ExecuteToolResponse` schema, which includes:
+    - **`execution_id`** (required): Echoes the unique identifier from the request.
+    - **`success`** (required): A Boolean indicating execution success.
+    - **`duration`** (optional): The time taken for execution (in milliseconds).
+    - **`output`** (optional): For tools that return a value, this field contains the value. For tools that return an error, this field contains an `error` object.
+
+#### Non-Normative Example: Tool Execution
+
+**Request:**
+
+```http
+POST /execute HTTP/1.1
+Host: api.example.com
+Content-Type: application/json
+Authorization: Bearer <JWT token>
+
+{
+  "$schema": "https://github.com/ArcadeAI/OpenToolCalling/tree/main/specification/http/1.0/openapi.json",
+  "request": {
+    "execution_id": "123e4567-e89b-12d3-a456-426614174000",
+    "tool_id": "Calculator.Add@1.0.0",
+    "input": {
+      "a": 1,
+      "b": 2
+    }
+  }
+}
+```
+
+**Response (Successful Execution):**
+
+```json
+{
+  "$schema": "https://github.com/ArcadeAI/OpenToolCalling/tree/main/specification/http/1.0/openapi.json",
+  "execution_id": "123e4567-e89b-12d3-a456-426614174000",
+  "duration": 2,
+  "success": true,
+  "output": {
+    "value": 3
+  }
+}
+```
+
+**Response (Error Case):**
+
+```json
+{
+  "$schema": "https://github.com/ArcadeAI/OpenToolCalling/tree/main/specification/http/1.0/openapi.json",
+  "execution_id": "123e4567-e89b-12d3-a456-426614174000",
+  "success": false,
+  "output": {
+    "error": {
+      "message": "Invalid input parameter",
+      "developer_message": "Parameter 'b' is missing or formatted incorrectly.",
+      "can_retry": false
+    }
+  }
+}
+```
 
 ## 6. Security and Authorization
 
-Security is a critical component of the Open Tool Calling Standard. The following measures are incorporated:
+Security is a critical component of the Open Tool Calling standard. The following measures are incorporated:
 
 - **Authorization:**
   Tools may require token-based or other forms of authorization, as specified in the `requirements.authorization` field of the Tool Definition Schema.
 - **Secrets Management:**
-  Sensitive information is handled via the `requirements.secrets` field.
+  Sensitive information such as API keys, passwords, and other credentials is handled via the `requirements.secrets` field.
 - **Contextual Security:**
   The Tool Request Schema includes contextual information such as user identity and authorization tokens, which help ensure secure execution.
 
-These security measures are intended to protect the integrity of tool interactions and ensure that only authorized agents can invoke tool functions.
+These security measures are intended to protect the integrity of tool interactions and ensure that only authorized clients can execute tools.
 
----
+TODO describe client->server security.
 
 ## 7. Extensibility and Versioning
 
 - **Extensibility:**
-  The Open Tool Calling Standard is designed to be extensible.
+  The Open Tool Calling standard is designed to be extensible.
 
   - New parameters or response types can be added as additional properties in the respective schemas.
-  - The use of JSON Schema allows for backward-compatible extensions.
+  - The use of JSON-Schema allows for backward-compatible extensions.
 
 - **Versioning:**
-  - Each toolkit and tool definition must include a version identifier.
-  - The `$schema` field in each schema helps ensure that both agents and tools are interpreting data according to the correct schema version.
+  - Each server response must include a `$schema` field that references the version of the Open Tool Calling standard that was used to generate the response.
 
 Proper versioning guarantees that changes to the standard do not disrupt existing implementations.
 
----
-
 ## 8. Conclusion
 
-The Open Tool Calling Standard provides a robust framework for agent-to-tool communications. By standardizing tool definitions, request formats, and response structures, this standard promotes interoperability, consistency, and security in distributed systems. Adoption of this standard will facilitate seamless integration between diverse agents and tools across multiple platforms.
-
----
+The Open Tool Calling standard provides a robust framework for client-to-tool communications. By standardizing tool definitions, request formats, and response structures, this standard promotes interoperability, consistency, and security in distributed systems. Adoption of this standard will facilitate seamless integration between diverse clients and tools across multiple platforms.
 
 ## 9. References
 

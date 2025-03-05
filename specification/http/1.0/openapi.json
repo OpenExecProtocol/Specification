@@ -1,0 +1,456 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Open Tool Calling Standard",
+    "version": "1.0.0",
+    "description": "A standard for calling tools (functions or services) in a distributed system.",
+    "contact": {
+      "name": "Arcade.dev",
+      "url": "https://arcade.dev",
+      "email": "dev@arcade.dev"
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Check health",
+        "description": "Checks the health status of the server.",
+        "responses": {
+          "200": {
+            "description": "Server is healthy."
+          }
+        }
+      }
+    },
+    "/tools": {
+      "get": {
+        "summary": "List tools",
+        "description": "Returns a list of tool definitions.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {}
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of available tools.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "$schema": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "tools": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ToolDefinition"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/execute": {
+      "post": {
+        "summary": "Execute tool",
+        "description": "Executes a tool with the given parameters.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "$schema": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "request": {
+                    "$ref": "#/components/schemas/ExecuteToolRequest"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Execution response from tool.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "$schema": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "response": {
+                      "$ref": "#/components/schemas/ExecuteToolResponse"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "components": {
+      "securitySchemes": {
+        "bearerAuth": {
+          "type": "http",
+          "scheme": "bearer",
+          "bearerFormat": "JWT"
+        }
+      },
+      "schemas": {
+        "ToolId": {
+          "type": "string",
+          "description": "A tool's unique identifier in the format 'Toolkit.Tool[@version]', where @version is optional.",
+          "pattern": "^[A-Za-z0-9_]+\\.[A-Za-z0-9_]+(@[A-Za-z0-9_.\\-]+)?$",
+          "examples": [
+            "MyToolkit.MyTool",
+            "MyToolkit.MyTool@1.0",
+            "Calculator.Add@latest"
+          ]
+        },
+        "ToolSecret": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The secret's unique identifier."
+            },
+            "value": {
+              "type": "string",
+              "description": "The secret's value."
+            }
+          },
+          "required": ["id", "value"],
+          "additionalProperties": false
+        },
+        "SimpleJSONSchema": {
+          "type": "object",
+          "properties": {
+            "type": "object",
+            "additionalProperties": true,
+            "not": {
+              "properties": {
+                "$ref": {},
+                "$defs": {},
+                "definitions": {}
+              }
+            }
+          }
+        },
+        "ToolDefinition": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/components/schemas/ToolId"
+            },
+            "name": {
+              "type": "string",
+              "description": "The tool's name."
+            },
+            "description": {
+              "type": "string",
+              "description": "A human-readable explanation of the tool's purpose. This field can be used by both humans and AI models."
+            },
+            "toolkit": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "The name of the toolkit."
+                },
+                "description": {
+                  "type": "string",
+                  "description": "A human-readable description of the toolkit."
+                },
+                "version": {
+                  "type": "string",
+                  "description": "An identifier for this version of the toolkit."
+                }
+              },
+              "required": ["name", "description"],
+              "additionalProperties": false
+            },
+            "input": {
+              "type": "object",
+              "properties": {
+                "parameters": {
+                  "$ref": "#/components/schemas/SimpleJSONSchema",
+                  "description": "JSON Schema describing the input parameters for the tool. Supports standard JSON Schema validation but excludes $ref and definitions/schemas for simplicity.",
+                  "additionalProperties": true,
+                  "required": ["name", "description"]
+                },
+                "non_inferrable_parameters": {
+                  "type": "array",
+                  "description": "A list of parameter names that must not be inferred by a model.",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": ["parameters"],
+              "additionalProperties": false
+            },
+            "output": {
+              "type": "object",
+              "properties": {
+                "available_modes": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": ["value", "error", "null"]
+                  }
+                },
+                "description": {
+                  "type": "string",
+                  "description": "A descriptive, human-readable explanation of the function's output."
+                },
+                "value": {
+                  "type": "object",
+                  "properties": {
+                    "parameters": {
+                      "$ref": "#/components/schemas/SimpleJSONSchema",
+                      "description": "JSON Schema describing the output parameters for the tool. Supports standard JSON Schema validation but excludes $ref and definitions/schemas for simplicity."
+                    }
+                  }
+                }
+              },
+              "required": ["available_modes"],
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "available_modes": {
+                        "contains": { "const": "value" }
+                      }
+                    }
+                  },
+                  "then": {
+                    "required": ["value"]
+                  }
+                }
+              ],
+              "additionalProperties": false
+            },
+            "requirements": {
+              "type": "object",
+              "properties": {
+                "authorization": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "description": "A provider's unique identifier, allowing the tool to specify a specific authorization provider."
+                      },
+                      "oauth2": {
+                        "type": "object",
+                        "description": "OAuth 2.0-specific authorization details.",
+                        "properties": {
+                          "scopes": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["id"],
+                  "additionalProperties": false
+                },
+                "secrets": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "description": "The secret's unique identifier."
+                      }
+                    },
+                    "required": ["id"],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "required": ["id", "name", "description", "toolkit"],
+          "additionalProperties": false
+        },
+        "ExecuteToolRequest": {
+          "type": "object",
+          "properties": {
+            "execution_id": {
+              "type": "string",
+              "description": "The globally-unique ID for this tool execution."
+            },
+            "trace_id": {
+              "type": "string",
+              "description": "A trace identifier for the tool execution."
+            },
+            "tool_id": {
+              "$ref": "#/components/schemas/ToolId"
+            },
+            "input": {
+              "type": "object",
+              "description": "The input parameters for the tool call.",
+              "additionalProperties": true
+            },
+            "context": {
+              "type": "object",
+              "properties": {
+                "authorization": {
+                  "type": "array",
+                  "description": "The authorization information for the tool call.",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "description": "The unique identifier for the authorization method or authorization provider."
+                      },
+                      "token": {
+                        "type": "string",
+                        "description": "The token for the tool call."
+                      }
+                    },
+                    "required": ["id", "token"],
+                    "additionalProperties": false
+                  }
+                },
+                "secrets": {
+                  "type": "array",
+                  "description": "The secrets for the tool call.",
+                  "items": {
+                    "$ref": "#/components/schemas/ToolSecret"
+                  },
+                  "additionalProperties": true
+                },
+                "user_id": {
+                  "type": "string",
+                  "description": "A unique ID that identifies the user, if present."
+                },
+                "user_info": {
+                  "type": "object",
+                  "description": "Additional information about the user, if present."
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "required": ["execution_id", "tool_id"],
+          "additionalProperties": false
+        },
+        "ExecuteToolResponse": {
+          "type": "object",
+          "properties": {
+            "$schema": {
+              "type": "string",
+              "format": "uri"
+            },
+            "execution_id": {
+              "type": "string",
+              "description": "The globally-unique ID for this tool execution."
+            },
+            "duration": {
+              "type": "number",
+              "description": "The duration of the tool call, in milliseconds"
+            },
+            "success": {
+              "type": "boolean",
+              "description": "Whether the tool execution was successful."
+            },
+            "output": {
+              "type": "object",
+              "oneOf": [
+                {
+                  "properties": {
+                    "value": {
+                      "description": "The value returned from the tool.",
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "additionalProperties": true
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "boolean"
+                        }
+                      ]
+                    }
+                  },
+                  "required": ["value"],
+                  "additionalProperties": false
+                },
+                {
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string",
+                          "description": "An error message that can be shown to the user or the AI model."
+                        },
+                        "developer_message": {
+                          "type": "string",
+                          "description": "An internal message that will be logged but will not be shown to the user or the AI model"
+                        },
+                        "can_retry": {
+                          "type": "boolean",
+                          "description": "Whether the tool call can be retried by the client.",
+                          "default": false
+                        },
+                        "additional_prompt_content": {
+                          "type": "string",
+                          "description": "Additional content to be included in the retry prompt."
+                        },
+                        "retry_after_ms": {
+                          "type": "integer",
+                          "description": "The number of milliseconds (if any) to wait before retrying the tool call."
+                        }
+                      },
+                      "required": ["message"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "required": ["execution_id", "success"],
+          "additionalProperties": false
+        }
+      }
+    }
+  }
+}
