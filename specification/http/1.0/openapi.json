@@ -372,7 +372,7 @@
                 "description": "A unique ID that identifies the user, if present."
               }
             },
-            "additionalProperties": trueg
+            "additionalProperties": true
           }
         },
         "required": ["tool_id"],
