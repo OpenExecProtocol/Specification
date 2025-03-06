@@ -70,7 +70,7 @@
         }
       }
     },
-    "/execute": {
+    "/tools/execute": {
       "post": {
         "operationId": "execute-tool",
         "summary": "Execute tool",
@@ -94,7 +94,8 @@
                   "request": {
                     "$ref": "#/components/schemas/ExecuteToolRequest"
                   }
-                }
+                },
+                "required": ["request"]
               }
             }
           }
@@ -203,7 +204,7 @@
             "required": ["name", "description"],
             "additionalProperties": false
           },
-          "input": {
+          "input_schema": {
             "type": "object",
             "properties": {
               "parameters": {
@@ -211,19 +212,12 @@
                 "description": "JSON Schema describing the input parameters for the tool. Supports standard JSON Schema validation but excludes $ref and definitions/schemas for simplicity.",
                 "additionalProperties": true,
                 "required": ["name", "description"]
-              },
-              "non_inferrable_parameters": {
-                "type": "array",
-                "description": "A list of parameter names that must not be inferred by a model.",
-                "items": {
-                  "type": "string"
-                }
               }
             },
             "required": ["parameters"],
             "additionalProperties": false
           },
-          "output": {
+          "output_schema": {
             "type": "object",
             "properties": {
               "available_modes": {
@@ -329,7 +323,7 @@
         "properties": {
           "execution_id": {
             "type": "string",
-            "description": "The globally-unique ID for this tool execution."
+            "description": "The unique identifier (e.g. UUID) for this tool execution."
           },
           "trace_id": {
             "type": "string",
@@ -376,16 +370,12 @@
               "user_id": {
                 "type": "string",
                 "description": "A unique ID that identifies the user, if present."
-              },
-              "user_info": {
-                "type": "object",
-                "description": "Additional information about the user, if present."
               }
             },
-            "additionalProperties": false
+            "additionalProperties": trueg
           }
         },
-        "required": ["execution_id", "tool_id"],
+        "required": ["tool_id"],
         "additionalProperties": false
       },
       "ExecuteToolResponse": {
@@ -397,7 +387,7 @@
           },
           "execution_id": {
             "type": "string",
-            "description": "The globally-unique ID for this tool execution."
+            "description": "The unique identifier (e.g. UUID) for this tool execution. If an ID is not provided by the client, the server will generate one."
           },
           "duration": {
             "type": "number",

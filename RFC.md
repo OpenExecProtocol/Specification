@@ -78,6 +78,8 @@ sequenceDiagram
 
 ## 4. Schema Definitions
 
+TODO: Add toolkit information, including a description of `version` (semver). Consider splitting `toolkit` into its own schema which is referenced from `ToolDefinition`.
+
 ### 4.1 Tool Definition Schema
 
 The Tool Definition Schema establishes the properties and required fields to describe a tool. It consists of the following sections:
@@ -105,7 +107,10 @@ The Tool Definition Schema establishes the properties and required fields to des
 
 - **`output`** (optional): Specifies the expected result of the tool execution.
 
-  - **`available_modes`**: A list of modes such as `value`, `error`, `null`, etc. If `value` is present, the `output.value` field MUST be present.
+  - **`available_modes`**: A list of one or more possible output modes: `value`, `error`, `null`.
+    - **`value`**: The tool may return a value. If this mode is present, the `value` field MUST be present.
+    - **`error`**: The tool may return an error.
+    - **`null`**: The tool may return no value.
   - **`description`** (optional): Human-readable explanation of the output.
   - **`value`** (optional): A JSON Schema object that describes the output parameters for the tool.
 
@@ -158,6 +163,10 @@ The Tool Request Schema is designed to encapsulate the details of a tool executi
     - **`user_info`** (optional): Supplementary information provided by the authorization server.
 
 This schema guarantees that every tool call is uniquely identifiable and that the necessary parameters and context for execution are clearly provided.
+
+#### Tool Version Resolution
+
+TODO - describe how the server will resolve the version of the tool to call, including the special keyword `latest` and the behavior when a version is not specified (also `latest`).
 
 #### Non-Normative Examples
 
@@ -293,7 +302,7 @@ Tool execution is initiated by sending a POST request to the `/execute` endpoint
   - **Endpoint:** `/execute`
   - **Security:** Servers MAY require bearer authentication (JWT). Servers that are internet-facing SHOULD require authentication.
   - **Payload:** A JSON document with two main parts:
-    - **`$schema` Field:** A URI reference to the standard.
+    - **`$schema` Field** (optional): A URI reference to the version of the Open Tool Calling standard that was used to generate the request.
     - **`request` Object:** Includes:
       - **`execution_id`** (required): A unique identifier for this execution.
       - **`tool_id`** (required): The unique identifier of the tool to be executed.
@@ -306,6 +315,8 @@ Tool execution is initiated by sending a POST request to the `/execute` endpoint
     - **`success`** (required): A Boolean indicating execution success.
     - **`duration`** (optional): The time taken for execution (in milliseconds).
     - **`output`** (optional): For tools that return a value, this field contains the value. For tools that return an error, this field contains an `error` object.
+
+TODO: $schema is not required for the request, but is recommended to ensure compatibility with future versions of the standard. The server must assume the request conforms to the latest version of the standard if `$schema` is not present.
 
 #### Non-Normative Example: Tool Execution
 
