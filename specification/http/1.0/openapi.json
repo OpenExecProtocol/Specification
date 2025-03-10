@@ -120,7 +120,24 @@
             }
           },
           "400": {
-            "description": "The request is invalid."
+            "description": "The request is invalid or could not be processed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequestResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The tool call is valid, but the parameters are invalid (missing, incorrect type, etc).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -403,73 +420,83 @@
           },
           "success": {
             "type": "boolean",
-            "description": "Whether the tool call was successful."
+            "description": "Whether the tool call was successful. If the `error` field is present, this field will be false."
           },
-          "output": {
-            "type": "object",
+          "json": {
+            "description": "The JSON object returned from the tool.",
             "oneOf": [
               {
-                "properties": {
-                  "value": {
-                    "description": "The value returned from the tool.",
-                    "oneOf": [
-                      {
-                        "type": "object",
-                        "additionalProperties": true
-                      },
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "boolean"
-                      }
-                    ]
-                  }
-                },
-                "required": ["value"],
-                "additionalProperties": false
+                "type": "object",
+                "additionalProperties": true
               },
               {
-                "properties": {
-                  "error": {
-                    "type": "object",
-                    "properties": {
-                      "message": {
-                        "type": "string",
-                        "description": "An error message that can be shown to the user or the AI model."
-                      },
-                      "developer_message": {
-                        "type": "string",
-                        "description": "An internal message that will be logged but will not be shown to the user or the AI model"
-                      },
-                      "can_retry": {
-                        "type": "boolean",
-                        "description": "Whether the tool call can be retried by the client.",
-                        "default": false
-                      },
-                      "additional_prompt_content": {
-                        "type": "string",
-                        "description": "Additional content to be included in the retry prompt."
-                      },
-                      "retry_after_ms": {
-                        "type": "integer",
-                        "description": "The number of milliseconds (if any) to wait before retrying the tool call."
-                      }
-                    },
-                    "required": ["message"],
-                    "additionalProperties": false
-                  }
-                },
-                "required": ["error"],
-                "additionalProperties": false
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "boolean"
               }
             ]
+          },
+          "error": {
+            "type": "object",
+            "description": "An error that occurred inside the tool function.",
+            "properties": {
+              "message": {
+                "type": "string",
+                "description": "An error message that can be shown to the user or the AI model."
+              },
+              "developer_message": {
+                "type": "string",
+                "description": "An internal message that will be logged but will not be shown to the user or the AI model"
+              },
+              "can_retry": {
+                "type": "boolean",
+                "description": "Whether the tool call can be retried by the client.",
+                "default": false
+              },
+              "additional_prompt_content": {
+                "type": "string",
+                "description": "Additional content to be included in the retry prompt."
+              },
+              "retry_after_ms": {
+                "type": "integer",
+                "description": "The number of milliseconds (if any) to wait before retrying the tool call."
+              }
+            },
+            "required": ["message"],
+            "additionalProperties": false
           }
         },
         "required": ["call_id", "success"],
+        "additionalProperties": false
+      },
+      "BadRequestResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "The error message."
+          }
+        },
+        "required": ["message"],
+        "additionalProperties": false
+      },
+      "ValidationResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "The error message."
+          },
+          "parameter_errors": {
+            "type": "object",
+            "description": "A map of parameter names to error messages, if parameter-level errors are present."
+          }
+        },
+        "required": ["message"],
         "additionalProperties": false
       }
     }
