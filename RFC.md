@@ -49,7 +49,7 @@ The Open Tool Calling standard is designed around three key components:
 
 1. **Tool Definition:** A schema that specifies how a tool is described. It includes metadata such as the tool's name, unique identifier, toolkit information, and the input/output specifications.
 2. **Tool Request:** A schema that details the structure of a tool call. It encompasses the run identifier, execution context, tool metadata, and input parameters.
-3. **Tool Response:** A schema that outlines the structure of the response returned after a tool execution. It provides details on execution status, duration, and the actual output (or errors) of the tool call.
+3. **Tool Response:** A schema that outlines the structure of the response returned after a tool call. It provides details on execution status, duration, and the actual output (or errors) of the tool call.
 
 These components ensure consistent communication between clients and tools, regardless of the implementation details of each tool.
 
@@ -67,10 +67,10 @@ sequenceDiagram
     C->>S: Request tool list
     S-->>C: List of available tools
 
-    %% Tool execution
-    C->>S: Send execution request
+    %% Tool call
+    C->>S: Send call request
     Note left of C: Resolve requirements (such as authorization)
-    S->>T: Execute tool (function)
+    S->>T: Run tool (function)
     T-->>S: Return tool response
     S-->>C: Return tool response
 
@@ -105,7 +105,7 @@ The Tool Definition Schema establishes the properties and required fields to des
 
 #### Output Schema
 
-- **`output`** (optional): Specifies the expected result of the tool execution.
+- **`output`** (optional): Specifies the expected result of the tool call.
 
   - **`available_modes`**: A list of one or more possible output modes: `value`, `error`, `null`.
     - **`value`**: The tool may return a value. If this mode is present, the `value` field MUST be present.
@@ -144,8 +144,8 @@ The Tool Request Schema is designed to encapsulate the details of a tool executi
 
 - **Run and Execution Identification:**
 
-  - **`execution_id`**: Globally unique identifier for this tool execution.
-  - **`trace_id`** (optional): Unique identifier for the trace of the tool execution, if supplied by the client.
+  - **`execution_id`**: Globally unique identifier for this tool call.
+  - **`trace_id`** (optional): Unique identifier for the trace of the tool call, if supplied by the client.
 
 - **Tool Metadata:**
 
@@ -159,7 +159,7 @@ The Tool Request Schema is designed to encapsulate the details of a tool executi
   - **`context`**: Provides additional execution context including:
     - **`authorization`** (optional): Contains tokens for authentication.
     - **`secrets`** (optional): Secret information required for execution.
-    - **`user_id`** (optional): Unique user identifier.
+    - **`user_id`** (optional): Unique user identifier. TODO remove?
     - **`user_info`** (optional): Supplementary information provided by the authorization server.
 
 This schema guarantees that every tool call is uniquely identifiable and that the necessary parameters and context for execution are clearly provided.
@@ -174,13 +174,13 @@ TODO
 
 ### 4.3 Tool Response Schema
 
-The Tool Response Schema defines the structure of the data returned after a tool execution:
+The Tool Response Schema defines the structure of the data returned after a tool call:
 
 - **Execution Metadata:**
 
-  - **`execution_id`**: The globally unique execution identifier.
-  - **`success`**: Boolean flag indicating the success or failure of the execution.
-  - **`duration`** (optional): Execution time in milliseconds.
+  - **`call_id`**: The globally unique call identifier.
+  - **`success`**: Boolean flag indicating the success or failure of the call.
+  - **`duration`** (optional): Call time in milliseconds.
 
 - **Output Content:**
   The output can take one of several forms:
@@ -202,7 +202,7 @@ TODO
 
 ## 5. Communication Flows
 
-The Open Tool Calling (OTC) standard defines clear communication flows that enable clients to discover available tools and execute them. The flows below follow the definitions in the OpenAPI specification (`specification/http/1.0/openapi.json`), ensuring that all tool interactions are consistent, secure, and standardized.
+The Open Tool Calling (OTC) standard defines clear communication flows that enable clients to discover available tools and call them. The flows below follow the definitions in the OpenAPI specification (`specification/http/1.0/openapi.json`), ensuring that all tool interactions are consistent, secure, and standardized.
 
 ### 5.1 Server Health Check
 
@@ -293,37 +293,37 @@ Authorization: Bearer <JWT token>
 
 ### 5.2 Tool Execution
 
-Tool execution is initiated by sending a POST request to the `/execute` endpoint. This flow lets clients run a tool and receive its output, with the request and response bodies conforming to the `ExecuteToolRequest` and `ExecuteToolResponse` schemas.
+Tool execution is initiated by sending a POST request to the `/call` endpoint. This flow lets clients run a tool and receive its output, with the request and response bodies conforming to the `CallToolRequest` and `CallToolResponse` schemas.
 
 #### Flow Details:
 
 - **Request:**
   - **Method:** POST
-  - **Endpoint:** `/execute`
+  - **Endpoint:** `/call`
   - **Security:** Servers MAY require bearer authentication (JWT). Servers that are internet-facing SHOULD require authentication.
   - **Payload:** A JSON document with two main parts:
     - **`$schema` Field** (optional): A URI reference to the version of the Open Tool Calling standard that was used to generate the request.
     - **`request` Object:** Includes:
-      - **`execution_id`** (required): A unique identifier for this execution.
-      - **`tool_id`** (required): The unique identifier of the tool to be executed.
+      - **`call_id`** (required): A unique identifier for this call.
+      - **`tool_id`** (required): The unique identifier of the tool to be called.
       - **`input`** (optional): An object providing the necessary input parameters.
       - **`context`** (optional): An object containing authorization tokens, secrets (if any), and user-specific data.
 - **Response:**
   - **Status Code:** 200 OK
-  - **Content:** A JSON document following the `ExecuteToolResponse` schema, which includes:
-    - **`execution_id`** (required): Echoes the unique identifier from the request.
-    - **`success`** (required): A Boolean indicating execution success.
-    - **`duration`** (optional): The time taken for execution (in milliseconds).
+  - **Content:** A JSON document following the `CallToolResponse` schema, which includes:
+    - **`call_id`** (required): Echoes the unique identifier from the request.
+    - **`success`** (required): A Boolean indicating call success.
+    - **`duration`** (optional): The time taken for call (in milliseconds).
     - **`output`** (optional): For tools that return a value, this field contains the value. For tools that return an error, this field contains an `error` object.
 
 TODO: $schema is not required for the request, but is recommended to ensure compatibility with future versions of the standard. The server must assume the request conforms to the latest version of the standard if `$schema` is not present.
 
-#### Non-Normative Example: Tool Execution
+#### Non-Normative Example: Tool Call
 
 **Request:**
 
 ```http
-POST /execute HTTP/1.1
+POST /call HTTP/1.1
 Host: api.example.com
 Content-Type: application/json
 Authorization: Bearer <JWT token>
@@ -331,7 +331,7 @@ Authorization: Bearer <JWT token>
 {
   "$schema": "https://github.com/ArcadeAI/OpenToolCalling/tree/main/specification/http/1.0/openapi.json",
   "request": {
-    "execution_id": "123e4567-e89b-12d3-a456-426614174000",
+    "call_id": "123e4567-e89b-12d3-a456-426614174000",
     "tool_id": "Calculator.Add@1.0.0",
     "input": {
       "a": 1,
@@ -346,7 +346,7 @@ Authorization: Bearer <JWT token>
 ```json
 {
   "$schema": "https://github.com/ArcadeAI/OpenToolCalling/tree/main/specification/http/1.0/openapi.json",
-  "execution_id": "123e4567-e89b-12d3-a456-426614174000",
+  "call_id": "123e4567-e89b-12d3-a456-426614174000",
   "duration": 2,
   "success": true,
   "output": {
@@ -360,7 +360,7 @@ Authorization: Bearer <JWT token>
 ```json
 {
   "$schema": "https://github.com/ArcadeAI/OpenToolCalling/tree/main/specification/http/1.0/openapi.json",
-  "execution_id": "123e4567-e89b-12d3-a456-426614174000",
+  "call_id": "123e4567-e89b-12d3-a456-426614174000",
   "success": false,
   "output": {
     "error": {
@@ -383,7 +383,7 @@ Security is a critical component of the Open Tool Calling standard. The followin
 - **Contextual Security:**
   The Tool Request Schema includes contextual information such as user identity and authorization tokens, which help ensure secure execution.
 
-These security measures are intended to protect the integrity of tool interactions and ensure that only authorized clients can execute tools.
+These security measures are intended to protect the integrity of tool interactions and ensure that only authorized clients can call tools.
 
 TODO describe client->server security.
 

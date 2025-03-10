@@ -70,11 +70,11 @@
         }
       }
     },
-    "/tools/execute": {
+    "/tools/call": {
       "post": {
-        "operationId": "execute-tool",
-        "summary": "Execute tool",
-        "description": "Executes a tool with the given parameters.",
+        "operationId": "call-tool",
+        "summary": "Call tool",
+        "description": "Calls a tool with the given parameters.",
         "security": [
           {
             "bearerAuth": []
@@ -92,7 +92,7 @@
                     "format": "uri"
                   },
                   "request": {
-                    "$ref": "#/components/schemas/ExecuteToolRequest"
+                    "$ref": "#/components/schemas/CallToolRequest"
                   }
                 },
                 "required": ["request"]
@@ -102,7 +102,7 @@
         },
         "responses": {
           "200": {
-            "description": "Execution response from tool.",
+            "description": "Response from tool.",
             "content": {
               "application/json": {
                 "schema": {
@@ -112,7 +112,7 @@
                       "format": "uri"
                     },
                     "response": {
-                      "$ref": "#/components/schemas/ExecuteToolResponse"
+                      "$ref": "#/components/schemas/CallToolResponse"
                     }
                   }
                 }
@@ -231,6 +231,10 @@
                 "type": "string",
                 "description": "A descriptive, human-readable explanation of the function's output."
               },
+              "possible_mime_types": {
+                "type": "string",
+                "description": "The MIME type of the output."
+              },
               "value": {
                 "type": "object",
                 "properties": {
@@ -315,19 +319,26 @@
             "additionalProperties": false
           }
         },
-        "required": ["id", "name", "description", "toolkit"],
+        "required": [
+          "id",
+          "name",
+          "description",
+          "toolkit",
+          "input_schema",
+          "output_schema"
+        ],
         "additionalProperties": false
       },
-      "ExecuteToolRequest": {
+      "CallToolRequest": {
         "type": "object",
         "properties": {
-          "execution_id": {
+          "call_id": {
             "type": "string",
-            "description": "The unique identifier (e.g. UUID) for this tool execution."
+            "description": "The unique identifier (e.g. UUID) for this tool call. Used as an idempotency key."
           },
           "trace_id": {
             "type": "string",
-            "description": "A trace identifier for the tool execution."
+            "description": "An optional trace identifier for the tool call."
           },
           "tool_id": {
             "$ref": "#/components/schemas/ToolId"
@@ -378,16 +389,16 @@
         "required": ["tool_id"],
         "additionalProperties": false
       },
-      "ExecuteToolResponse": {
+      "CallToolResponse": {
         "type": "object",
         "properties": {
           "$schema": {
             "type": "string",
             "format": "uri"
           },
-          "execution_id": {
+          "call_id": {
             "type": "string",
-            "description": "The unique identifier (e.g. UUID) for this tool execution. If an ID is not provided by the client, the server will generate one."
+            "description": "The unique identifier (e.g. UUID) for this tool call. If an ID is not provided by the client, the server will generate one."
           },
           "duration": {
             "type": "number",
@@ -395,7 +406,7 @@
           },
           "success": {
             "type": "boolean",
-            "description": "Whether the tool execution was successful."
+            "description": "Whether the tool call was successful."
           },
           "output": {
             "type": "object",
@@ -461,7 +472,7 @@
             ]
           }
         },
-        "required": ["execution_id", "success"],
+        "required": ["call_id", "success"],
         "additionalProperties": false
       }
     }
