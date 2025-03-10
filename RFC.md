@@ -144,7 +144,7 @@ The Tool Request Schema is designed to encapsulate the details of a tool executi
 
 - **Run and Execution Identification:**
 
-  - **`execution_id`**: Globally unique identifier for this tool call.
+  - **`call_id`** (optional): A unique identifier and idempotency key for this tool call. If not provided, the server will generate one.
   - **`trace_id`** (optional): Unique identifier for the trace of the tool call, if supplied by the client.
 
 - **Tool Metadata:**
@@ -164,6 +164,10 @@ The Tool Request Schema is designed to encapsulate the details of a tool executi
 
 This schema guarantees that every tool call is uniquely identifiable and that the necessary parameters and context for execution are clearly provided.
 
+#### Tool Context
+
+TODO
+
 #### Tool Version Resolution
 
 TODO - describe how the server will resolve the version of the tool to call, including the special keyword `latest` and the behavior when a version is not specified (also `latest`).
@@ -178,7 +182,7 @@ The Tool Response Schema defines the structure of the data returned after a tool
 
 - **Execution Metadata:**
 
-  - **`call_id`**: The globally unique call identifier.
+  - **`call_id`**: A unique identifier for this call.
   - **`success`**: Boolean flag indicating the success or failure of the call.
   - **`duration`** (optional): Call time in milliseconds.
 
@@ -199,6 +203,8 @@ The Tool Response Schema ensures that every response provides clear and actionab
 #### Non-Normative Examples
 
 TODO
+TODO - example of error message vs. developer_message
+TODO - example of additional_prompt_content
 
 ## 5. Communication Flows
 
