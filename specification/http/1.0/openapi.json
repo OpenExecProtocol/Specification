@@ -220,22 +220,19 @@
           "output_schema": {
             "type": "object",
             "properties": {
-              "available_modes": {
+              "possible_kinds": {
                 "type": "array",
+                "description": "The kinds of output that the tool can return: none (a void- or None-returning function), or json (a function that returns a JSON-like value).",
                 "items": {
                   "type": "string",
-                  "enum": ["value", "error", "null"]
+                  "enum": ["none", "json"]
                 }
               },
               "description": {
                 "type": "string",
                 "description": "A descriptive, human-readable explanation of the function's output."
               },
-              "possible_mime_types": {
-                "type": "string",
-                "description": "The MIME type of the output."
-              },
-              "value": {
+              "json": {
                 "type": "object",
                 "properties": {
                   "parameters": {
@@ -245,23 +242,23 @@
                 }
               }
             },
-            "required": ["available_modes"],
+            "required": ["possible_kinds"],
             "allOf": [
               {
                 "oneOf": [
                   {
                     "properties": {
-                      "available_modes": {
-                        "contains": { "const": "value" }
+                      "possible_kinds": {
+                        "contains": { "const": "json" }
                       }
                     },
-                    "required": ["value"]
+                    "required": ["json"]
                   },
                   {
                     "not": {
                       "properties": {
-                        "available_modes": {
-                          "contains": { "const": "value" }
+                        "possible_kinds": {
+                          "contains": { "const": "json" }
                         }
                       }
                     }
