@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "validate": "node scripts/validate.js"
+    "validate-component": "node scripts/validate-component.js",
+    "validate-request": "node scripts/validate-request.js"
   },
   "keywords": [],
   "author": "",

@@ -25,11 +25,8 @@
           "200": {
             "description": "Server is healthy."
           },
-          "400": {
+          "503": {
             "description": "Server is unhealthy and cannot accept requests."
-          },
-          "500": {
-            "description": "Server has errored and cannot accept requests."
           }
         }
       }
@@ -45,6 +42,21 @@
           },
           {}
         ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "$schema": {
+                    "type": "string",
+                    "format": "uri"
+                  }
+                }
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "A list of available tools.",
@@ -62,7 +74,8 @@
                         "$ref": "#/components/schemas/ToolDefinition"
                       }
                     }
-                  }
+                  },
+                  "required": ["tools"]
                 }
               }
             }
@@ -111,10 +124,11 @@
                       "type": "string",
                       "format": "uri"
                     },
-                    "response": {
+                    "result": {
                       "$ref": "#/components/schemas/CallToolResponse"
                     }
-                  }
+                  },
+                  "required": ["result"]
                 }
               }
             }
@@ -271,6 +285,10 @@
                   "required": ["id"],
                   "additionalProperties": false
                 }
+              },
+              "user_id": {
+                "type": "boolean",
+                "description": "Whether the tool requires a user ID."
               }
             },
             "additionalProperties": false
@@ -348,17 +366,13 @@
       "CallToolResponse": {
         "type": "object",
         "properties": {
-          "$schema": {
-            "type": "string",
-            "format": "uri"
-          },
           "call_id": {
             "type": "string",
             "description": "The unique identifier (e.g. UUID) for this tool call. If an ID is not provided by the client, the server will generate one."
           },
           "duration": {
             "type": "number",
-            "description": "The duration of the tool call, in milliseconds"
+            "description": "The runtime duration of the tool call, in milliseconds"
           },
           "success": {
             "type": "boolean",
@@ -370,11 +384,6 @@
           {
             "properties": {
               "success": { "enum": [true] },
-              "mime_type": {
-                "type": "string",
-                "description": "The MIME type of the output, or 'none' if the tool returns no value (a void- or None-returning function).",
-                "enum": ["none", "application/json"]
-              },
               "value": {
                 "description": "The value returned from the tool.",
                 "oneOf": [
@@ -394,7 +403,6 @@
                 ]
               }
             },
-            "required": ["mime_type", "value"],
             "not": { "required": ["error"] }
           },
           {
@@ -431,17 +439,25 @@
               }
             },
             "required": ["error"],
-            "not": { "required": ["mime_type", "value"] }
+            "not": { "required": ["value"] }
           }
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "ServerErrorResponse": {
         "type": "object",
         "properties": {
+          "$schema": {
+            "type": "string",
+            "format": "uri"
+          },
           "message": {
             "type": "string",
             "description": "The error message."
+          },
+          "developer_message": {
+            "type": "string",
+            "description": "An internal message that will be logged but will not be shown to the user or the AI model"
           }
         },
         "required": ["message"],
@@ -450,6 +466,10 @@
       "ValidationFailedResponse": {
         "type": "object",
         "properties": {
+          "$schema": {
+            "type": "string",
+            "format": "uri"
+          },
           "message": {
             "type": "string",
             "description": "The error message."

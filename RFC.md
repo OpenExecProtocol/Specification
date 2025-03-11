@@ -111,7 +111,7 @@ If the `requirements` field and one or more sub-fields are present, the client M
 
 **`requirements.authorization`** (optional): Declares one or more required authorization methods.
 
-Each required authorization method is described as an object with the following properties:
+Each authorization method is described as an object with the following properties:
 
 - **`id`**: A unique identifier for the authorization method or authorization provider.
 - **`oauth2`** (optional): For tools that require OAuth 2.0-based authorization, this field contains the OAuth 2.0-specific authorization details.
@@ -262,7 +262,8 @@ Each required secret is described as an object with the following properties:
              "scopes": ["https://www.googleapis.com/auth/gmail.readonly"]
            }
          }
-       ]
+       ],
+       "user_id": true
      }
    }
    ```
@@ -315,105 +316,357 @@ Each required secret is described as an object with the following properties:
 
 ### 4.2 Tool Request Schema
 
-The Tool Request Schema is designed to encapsulate the details of a tool execution (tool call):
+The `CallToolRequest` schema is designed to encapsulate the details of a tool execution (tool call).
 
-- **Run and Execution Identification:**
+#### Run and Execution Identification
 
-  - **`call_id`** (optional): A unique identifier and idempotency key for this tool call. If not provided, the server will generate one.
-  - **`trace_id`** (optional): Unique identifier for the trace of the tool call, if supplied by the client.
+- **`tool_id`**: The unique identifier of the tool to call.
+- **`call_id`** (optional): A unique identifier and idempotency key for this tool call. If not provided, the server will generate one.
+- **`trace_id`** (optional): Unique identifier for the trace of the tool call, if supplied by the client.
 
-- **Tool Metadata:**
+#### Input Parameters
 
-  - **`tool_id`**: The unique identifier of the tool to call.
+- **`inputs`**: An unconstrained object containing the parameters needed by the tool.
 
-- **Input Parameters:**
+#### Context
 
-  - **`inputs`**: An unconstrained object containing the parameters needed by the tool.
+- **`context`** (optional): Provides additional execution context, e.g. authorization tokens, secrets, user-specific data, etc.
 
-- **Context:**
-  - **`context`**: Provides additional execution context including:
-    - **`authorization`** (optional): Contains tokens for authentication.
-    - **`secrets`** (optional): Secret information required for execution.
-    - **`user_id`** (optional): Unique user identifier. TODO remove?
-    - **`user_info`** (optional): Supplementary information provided by the authorization server.
+If the `requirements` field is present on a given tool definition, the client MUST provide the required information in the `context` field when calling the tool.
 
-This schema guarantees that every tool call is uniquely identifiable and that the necessary parameters and context for execution are clearly provided.
+**`context.authorization`** (optional): Contains tokens for authentication.
 
-#### Tool Context
+If the `requirements.authorization` field is present on a given tool definition, the client MUST provide the required authorization information in the `context.authorization` field when calling the tool. The client SHOULD obtain authorization tokens itself or through a trusted intermediary.
 
-TODO
+Each item in the `authorization` array is an object with the following properties:
+
+- **`id`**: The unique identifier for the authorization method or authorization provider.
+- **`token`**: The token for the tool call.
+
+**`context.secrets`** (optional): Contains secrets for the tool call.
+
+If the `requirements.secrets` field is present on a given tool definition, the client MUST provide the required secrets in the `context.secrets` field when calling the tool. The client SHOULD obtain secrets itself or through a trusted intermediary.
+
+Each item in the `secrets` array is an object with the following properties:
+
+- **`id`**: The unique identifier for the secret.
 
 #### Tool Version Resolution
 
-TODO - describe how the server will resolve the version of the tool to call: both simple versions (`@1`) and semantic versions (`@1.0.0`).
+Tools MUST be versioned using semantic versioning. A Tool Server MAY support multiple versions of a given tool, to allow clients to opt-in to new versions while preserving backwards compatibility.
+
+When a client calls a tool, the server MUST resolve the version of the tool to call. The server MUST use the following rules to resolve the version of the tool to call:
+
+1. Semantic Versioning: If the `version` field is present on the tool definition and is of the form `x.y.z` where `x`, `y`, and `z` are integers, the server MUST use the exact version specified in the `version` field. For example, `@1.0.0`.
+2. Shorthand Versioning: If the `version` field is present on the tool definition and is of the form `x` where `x` is an integer, the server MUST use the version `x.0.0`. For example, `@1` which resolves to `1.0.0`.
+3. Implied Latest Version: If the `version` field is not present on the tool definition, the server MUST use the latest version of the tool.
 
 #### Non-Normative Examples
 
-TODO
+1. **Calculator.Add**
+
+   A tool call request to add two numbers.
+
+   ```json
+   {
+     "tool_id": "Calculator.Add@1.0.0",
+     "call_id": "123e4567-e89b-12d3-a456-426614174000",
+     "input": {
+       "a": 10,
+       "b": 5
+     }
+   }
+   ```
+
+2. **Doorbell.Ring (No Output)**
+
+   A tool call request to ring a doorbell.
+
+   ```json
+   {
+     "tool_id": "Doorbell.Ring@0.1.0",
+     "call_id": "223e4567-e89b-12d3-a456-426614174001",
+     "input": {
+       "doorbell_id": "doorbell42"
+     }
+   }
+   ```
+
+3. **System.GetTimestamp (No Input)**
+
+   A tool call request to retrieve the current system timestamp.
+
+   ```json
+   {
+     "tool_id": "System.GetTimestamp@1.0.0",
+     "call_id": "323e4567-e89b-12d3-a456-426614174002"
+   }
+   ```
+
+4. **Gmail.GetEmails (OAuth 2.0 Authorization)**
+
+   A tool call request to retrieve emails from Gmail using OAuth 2.0 for authorization.
+
+   ```json
+   {
+     "tool_id": "Gmail.GetEmails@1.2.0",
+     "call_id": "423e4567-e89b-12d3-a456-426614174003",
+     "trace_id": "trace_123",
+     "input": {
+       "query": "is:unread"
+     },
+     "context": {
+       "authorization": [
+         {
+           "id": "google",
+           "token": "ya29.a0AfH6SMC..."
+         }
+       ],
+       "user_id": "user_123"
+     }
+   }
+   ```
+
+5. **SMS.Send (Secret Requirement)**
+
+   A tool call request to send an SMS using Twilio, which requires a secret.
+
+   ```json
+   {
+     "tool_id": "SMS.Send@0.1.2",
+     "call_id": "523e4567-e89b-12d3-a456-426614174004",
+     "input": {
+       "to": "+1234567890",
+       "message": "Hello from our service!"
+     },
+     "context": {
+       "secrets": [
+         {
+           "id": "TWILIO_API_KEY",
+           "value": "TWILIO_SECRET_VALUE"
+         }
+       ]
+     }
+   }
+   ```
 
 ### 4.3 Tool Response Schema
 
-The Tool Response Schema defines the structure of the data returned after a tool call:
+The `CallToolResponse` schema defines the structure of the data returned from a tool call.
 
-- **Execution Metadata:**
+#### Execution Metadata
 
-  - **`call_id`**: A unique identifier for this call.
-  - **`success`**: Boolean flag indicating the success or failure of the call.
-  - **`duration`** (optional): Call time in milliseconds.
+- **`call_id`**: A unique identifier for this call.
+- **`success`**: Boolean flag indicating the success or failure of the call.
+- **`duration`** (optional): Call time in milliseconds.
 
-- **Output Content:**
-  The output can take one of several forms:
-  1. **Value Response:**
-     - Contains a `value` field that may be a JSON object, number, string, or boolean.
-  2. **Error Response:**
-     - Contains an `error` object with:
-       - **`message`**: A user-facing error message.
-       - **`developer_message`** (optional): Detailed error information for internal debugging.
-       - **`can_retry`** (optional): Indicates if the request can be retried by the client. If unspecified, the client MUST assume the request cannot be retried (`false`).
-       - **`additional_prompt_content`** (optional): Extra content to be used for retry prompts.
-       - **`retry_after_ms`** (optional): Suggested delay before retrying.
+#### Output Content
 
-The Tool Response Schema ensures that every response provides clear and actionable information regarding the outcome of the tool call.
+The output can take one of several forms:
+
+1. **Value Response:**
+   - Contains a `value` field that MUST be a JSON object, number, string, or boolean.
+2. **Null Response:**
+   - Does not contain a `value` field.
+3. **Error Response:**
+   - Contains an `error` object with:
+     - **`message`**: A user-facing error message.
+     - **`developer_message`** (optional): Detailed error information for internal debugging.
+     - **`can_retry`** (optional): Indicates if the request can be retried by the client. If unspecified, the client MUST assume the request cannot be retried (`false`).
+     - **`additional_prompt_content`** (optional): Extra content to be used for retry prompts.
+     - **`retry_after_ms`** (optional): Suggested delay before retrying.
+
+The `CallToolResponse` schema ensures that every response provides clear and actionable information regarding the outcome of the tool call.
+
+#### Retrying Errors
+
+If `can_retry` is `true`, the client SHOULD retry the tool call after the `retry_after_ms` delay.
+
+If `additional_prompt_content` is present, the client MAY use it to provide additional context to the AI model when prompting it to retry the tool call. For example, the tool may return a list of suggested values that are close to the expected input for the model to evaluate.
 
 #### Non-Normative Examples
 
-TODO
-TODO - example of error message vs. developer_message
-TODO - example of additional_prompt_content
+1. **Calculator.Add (Success)**
+
+   A response for a tool call to add two numbers.
+
+   ```json
+   {
+     "call_id": "123e4567-e89b-12d3-a456-426614174000",
+     "duration": 50,
+     "success": true,
+     "value": 15
+   }
+   ```
+
+2. **Doorbell.Ring (Success, No Output)**
+
+   A response for a tool call to ring a doorbell that does not return any output.
+
+   ```json
+   {
+     "call_id": "223e4567-e89b-12d3-a456-426614174001",
+     "duration": 30,
+     "success": true,
+     "value": null
+   }
+   ```
+
+3. **System.GetTimestamp (Success)**
+
+   A response for a tool call that retrieves the current system timestamp.
+
+   ```json
+   {
+     "call_id": "323e4567-e89b-12d3-a456-426614174002",
+     "duration": 25,
+     "success": true,
+     "value": {
+       "timestamp": "2023-10-05T12:00:00Z"
+     }
+   }
+   ```
+
+4. **Gmail.GetEmails (Success)**
+
+   A successful response for a Gmail tool call that returns a list of emails.
+
+   ```json
+   {
+     "call_id": "423e4567-e89b-12d3-a456-426614174003",
+     "duration": 120,
+     "success": true,
+     "value": {
+       "emails": [
+         {
+           "id": "email_1",
+           "subject": "Welcome to Gmail",
+           "snippet": "Hello, welcome to your inbox!"
+         },
+         {
+           "id": "email_2",
+           "subject": "Your Receipt",
+           "snippet": "Thank you for your purchase..."
+         }
+       ]
+     }
+   }
+   ```
+
+5. **SMS.Send (Success)**
+
+   A successful response for a tool call that sends an SMS.
+
+   ```json
+   {
+     "call_id": "523e4567-e89b-12d3-a456-426614174004",
+     "duration": 80,
+     "success": true,
+     "value": {
+       "status": "sent"
+     }
+   }
+   ```
+
+6. **Error Response with Message and Developer Message**
+
+   A tool call error response that includes both a user-facing message and an internal developer message.
+
+   ```json
+   {
+     "call_id": "623e4567-e89b-12d3-a456-426614174005",
+     "duration": 40,
+     "success": false,
+     "error": {
+       "message": "Could not reach the server",
+       "developer_message": "The host api.example.com is not reachable"
+     }
+   }
+   ```
+
+7. **Error Response with Additional Prompt Content**
+
+   An error response that offers additional context and retry guidance.
+
+   ```json
+   {
+     "call_id": "723e4567-e89b-12d3-a456-426614174006",
+     "duration": 60,
+     "success": false,
+     "error": {
+       "message": "Doorbell ID not found",
+       "developer_message": "The doorbell with ID 'doorbell1' does not exist.",
+       "can_retry": true,
+       "additional_prompt_content": "ids: doorbell42,doorbell84",
+       "retry_after_ms": 500
+     }
+   }
+   ```
 
 ## 5. Communication Flows
 
 The Open Tool Calling (OTC) standard defines clear communication flows that enable clients to discover available tools and call them. The flows below follow the definitions in the OpenAPI specification (`specification/http/1.0/openapi.json`), ensuring that all tool interactions are consistent, secure, and standardized.
 
+### Schema Resolution
+
+The `$schema` field is used in requests and responses to indicate the version of the OTC standard that the client supports. If the `$schema` field is not included, the server MUST assume the client supports the latest version of the OTC standard.
+
+```json
+{
+  "$schema": "https://github.com/OpenToolCalling/Specification/tree/main/specification/http/1.0/openapi.json"
+}
+```
+
+The schema URI MUST be a valid URI.
+
 ### 5.1 Server Health Check
 
 An OTC server MUST implement a health check endpoint that returns a 200 OK response if the server is healthy.
 
-#### Flow Details:
+#### Flow Details
 
 - **Request:**
   - **Method:** GET
   - **Endpoint:** `/health`
+  - **Security:** No authentication is required.
 - **Response:**
   - **Status Code:** 200 OK
 
+If the server is ready to receive tool calls, the server MUST return a 200 OK response. The server MAY return an HTTP 503 response if it is not ready to receive tool calls.
+
+#### Non-Normative Example: Server Health Check
+
+**Request**
+
+```http
+GET /health HTTP/1.1
+```
+
+**Response**
+
+```http
+HTTP/1.1 200 OK
+```
+
 ### 5.2 Tool Discovery
 
-Clients retrieve tool definitions from the OTC server using the `/tools` endpoint. This flow provides a catalog of tools that clients can use, all of which conform to the `ToolDefinition` schema.
+Clients retrieve tool definitions from the Tool Server using the `/tools` endpoint. This flow provides a catalog of tools that the client can use, all of which conform to the `ToolDefinition` schema.
 
-#### Flow Details:
+#### Flow Details
 
 - **Request:**
   - **Method:** GET
   - **Endpoint:** `/tools`
   - **Security:** Servers MAY require bearer authentication (JWT). Servers that are internet-facing SHOULD require authentication.
+  - **Payload:** A JSON document containing:
+    - **`$schema` Field** (optional): The client MAY include a `$schema` field in the request body to indicate the version of the OTC standard that the client supports. If the `$schema` field is not included, the server MUST assume the client supports the latest version of the OTC standard.
 - **Response:**
   - **Status Code:** 200 OK
-  - **Content:** A JSON object that includes a `$schema` URI reference (indicating the standard version) and a `tools` array. Each element in the array is a complete tool definition.
+  - **Content:** A JSON object that includes a `$schema` URI reference (indicating the OTC version) and a `tools` array. Each element in the array is a complete tool definition. If there are no tools available, the `tools` array MUST be empty.
 
 #### Non-Normative Example: Tool Discovery
 
-**Request:**
+**Request**
 
 ```http
 GET /tools HTTP/1.1
@@ -421,7 +674,16 @@ Host: api.example.com
 Authorization: Bearer <JWT token>
 ```
 
-**Response:**
+**Response (No Tools)**
+
+```json
+{
+  "$schema": "https://github.com/ArcadeAI/OpenToolCalling/tree/main/specification/http/1.0/openapi.json",
+  "tools": []
+}
+```
+
+**Response (With Tools)**
 
 ```json
 {
@@ -429,14 +691,10 @@ Authorization: Bearer <JWT token>
   "tools": [
     {
       "id": "Calculator.Add@1.0.0",
-      "name": "Add",
-      "description": "Add two numbers together",
-      "toolkit": {
-        "name": "Calculator",
-        "description": "A toolkit for performing calculations.",
-        "version": "1.0.0"
-      },
-      "input": {
+      "name": "Calculator_Add",
+      "description": "Adds two numbers together.",
+      "version": "1.0.0",
+      "input_schema": {
         "parameters": {
           "type": "object",
           "properties": {
@@ -448,62 +706,90 @@ Authorization: Bearer <JWT token>
               "type": "number",
               "description": "The second number to add."
             }
-          }
-        },
-        "required": ["a", "b"]
-      },
-      "output": {
-        "available_modes": ["value", "error"],
-        "description": "The result produced by the tool.",
-        "value": {
-          "parameters": {
-            "type": "object",
-            "properties": {
-              "result": {
-                "type": "number",
-                "description": "The sum of the two numbers."
-              }
-            }
-          }
+          },
+          "required": ["a", "b"]
         }
+      },
+      "output_schema": {
+        "type": "number",
+        "description": "The sum of the two numbers."
       }
+    },
+    {
+      "id": "Doorbell.Ring@0.1.0",
+      "name": "Doorbell_Ring",
+      "description": "Rings a doorbell given a doorbell ID.",
+      "version": "0.1.0",
+      "input_schema": {
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "doorbell_id": {
+              "type": "string",
+              "description": "The ID of the doorbell to ring."
+            }
+          },
+          "required": ["doorbell_id"]
+        }
+      },
+      "output_schema": null
     }
   ]
 }
 ```
 
-### 5.2 Tool Execution
+### 5.3 Tool Execution
 
-Tool execution is initiated by sending a POST request to the `/call` endpoint. This flow lets clients run a tool and receive its output, with the request and response bodies conforming to the `CallToolRequest` and `CallToolResponse` schemas.
+Tool execution is initiated by sending a POST request to the `/tools/call` endpoint. This flow lets clients run a tool and receive its output, with the request and response bodies conforming to the `CallToolRequest` and `CallToolResponse` schemas.
 
-#### Flow Details:
+#### Flow Details
 
 - **Request:**
   - **Method:** POST
-  - **Endpoint:** `/call`
+  - **Endpoint:** `/tools/call`
   - **Security:** Servers MAY require bearer authentication (JWT). Servers that are internet-facing SHOULD require authentication.
-  - **Payload:** A JSON document with two main parts:
-    - **`$schema` Field** (optional): A URI reference to the version of the Open Tool Calling standard that was used to generate the request.
-    - **`request` Object:** Includes:
-      - **`call_id`** (required): A unique identifier for this call.
-      - **`tool_id`** (required): The unique identifier of the tool to be called.
-      - **`input`** (optional): An object providing the necessary input parameters.
-      - **`context`** (optional): An object containing authorization tokens, secrets (if any), and user-specific data.
-- **Response:**
+  - **Payload:** A JSON document containing:
+    - **`$schema` Field** (optional): The client MAY include a `$schema` field in the request body to indicate the version of the OTC standard that the client supports. If the `$schema` field is not included, the server MUST assume the client supports the latest version of the OTC standard.
+    - **`request` Object:** A JSON document following the `CallToolRequest` schema.
+- **Response (Tool Execution):**
   - **Status Code:** 200 OK
-  - **Content:** A JSON document following the `CallToolResponse` schema, which includes:
-    - **`call_id`** (required): Echoes the unique identifier from the request.
-    - **`success`** (required): A Boolean indicating call success.
-    - **`duration`** (optional): The time taken for call (in milliseconds).
-    - **`output`** (optional): For tools that return a value, this field contains the value. For tools that return an error, this field contains an `error` object.
+  - **Content:** A JSON document following the `CallToolResponse` schema.
+- **Response (Server Error):**
+  - **Status Code:** 400
+  - **Content:** A JSON document following the `ServerErrorResponse` schema.
+- **Response (Input Validation Error):**
+  - **Status Code:** 422
+  - **Content:** A JSON document following the `ValidationErrorResponse` schema.
 
-TODO: $schema is not required for the request, but is recommended to ensure compatibility with future versions of the standard. The server must assume the request conforms to the latest version of the standard if `$schema` is not present.
+Servers MUST differentiate between:
 
-TODO: Server errors (before tool is called) must result in 400 or 422. Once the tool is called, the server MUST return a 200 response with an error (`success: false`).
+1. Errors that occur before the tool is called.
+2. Input validation errors.
+3. Errors that occur during execution of the tool.
+
+#### Server Errors
+
+If an error occurs before the tool is called that is not related to input validation, the server MUST return a 400 response conforming to the `ServerErrorResponse` schema. Examples of such errors include:
+
+- The tool server is temporarily unavailable.
+- The requested version of the OTC standard is not supported.
+- The requested tool ID is invalid or cannot be found.
+- The requested tool version is not available.
+- The tool server requires authentication, but the client did not provide valid credentials.
+
+The `message` field MUST be present and SHOULD be a user-facing error message. The `developer_message` field MAY be present and SHOULD be an internal message that will be logged but will not be shown to the user or the AI model.
+
+#### Input Validation
+
+When a valid tool ID and version are provided, servers MUST validate the input parameters against the tool's `input_schema`. If the input parameters are invalid, the server MUST return a 422 response conforming to the `ValidationErrorResponse` schema. Servers MAY return a `parameter_errors` object that maps parameter names to error messages.
+
+#### Tool Execution Errors
+
+If an error occurs during execution of a tool, the server MUST return a 200 response conforming to the `CallToolResponse` schema, with a `success: false` and an `error` object.
 
 #### Non-Normative Example: Tool Call
 
-**Request:**
+**Request**
 
 ```http
 POST /call HTTP/1.1
@@ -524,36 +810,72 @@ Authorization: Bearer <JWT token>
 }
 ```
 
-**Response (Successful Execution):**
+**Response (Successful Execution)**
 
-```json
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
 {
   "$schema": "https://github.com/ArcadeAI/OpenToolCalling/tree/main/specification/http/1.0/openapi.json",
-  "call_id": "123e4567-e89b-12d3-a456-426614174000",
-  "duration": 2,
-  "success": true,
-  "output": {
+  "result": {
+    "call_id": "123e4567-e89b-12d3-a456-426614174000",
+    "duration": 2,
+    "success": true,
     "value": 3
   }
 }
 ```
 
-**Response (Error Case):**
+**Response (Server Error)**
 
-TODO Clean up example
+```http
+HTTP/1.1 400 Bad Request
+Content-Type: application/json
 
-```json
 {
   "$schema": "https://github.com/ArcadeAI/OpenToolCalling/tree/main/specification/http/1.0/openapi.json",
-  "call_id": "123e4567-e89b-12d3-a456-426614174000",
-  "success": false,
-  "output": {
-    "error": {
-      "message": "Invalid input parameter",
-      "developer_message": "Parameter 'b' is missing or formatted incorrectly.",
-      "can_retry": false
-    }
+  "message": "Tool call failed",
+  "developer_message": "Calculator.Add@2.0.0 is not available"
+}
+```
+
+**Response (Input Validation Error)**
+
+```http
+HTTP/1.1 422 Unprocessable Entity
+Content-Type: application/json
+
+{
+  "$schema": "https://github.com/ArcadeAI/OpenToolCalling/tree/main/specification/http/1.0/openapi.json",
+  "message": "Some input parameters are invalid",
+  "parameter_errors": {
+    "a": "Must be a number",
+    "b": "Must be a number"
   }
+}
+```
+
+**Response (Tool Execution Error)**
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "$schema": "https://github.com/ArcadeAI/OpenToolCalling/tree/main/specification/http/1.0/openapi.json",
+  "result": {
+     "call_id": "723e4567-e89b-12d3-a456-426614174006",
+     "duration": 60,
+     "success": false,
+     "error": {
+       "message": "Doorbell ID not found",
+       "developer_message": "The doorbell with ID 'doorbell1' does not exist.",
+       "can_retry": true,
+       "additional_prompt_content": "ids: doorbell42,doorbell84",
+       "retry_after_ms": 500
+     }
+   }
 }
 ```
 
@@ -561,10 +883,12 @@ TODO Clean up example
 
 Security is a critical component of the Open Tool Calling standard. The following measures are incorporated:
 
-- **Authorization:**
-  Tools may require token-based or other forms of authorization, as specified in the `requirements.authorization` field of the Tool Definition Schema.
-- **Secrets Management:**
-  Sensitive information such as API keys, passwords, and other credentials is handled via the `requirements.secrets` field.
+- **Server-Level Authorization:**
+  The server MAY require bearer authentication (JWT). Servers that are internet-facing SHOULD require authentication.
+- **Tool-Level Authorization:**
+  Individual tools MAY require token-based or other forms of authorization, as specified in the `requirements.authorization` field of the Tool Definition Schema.
+- **Tool-Level Secrets Management:**
+  Individual tools MAY require sensitive information such as API keys, passwords, and other credentials, which is handled via the `requirements.secrets` field.
 - **Contextual Security:**
   The Tool Request Schema includes contextual information such as user identity and authorization tokens, which help ensure secure execution.
 
@@ -590,5 +914,7 @@ Proper versioning guarantees that changes to the standard do not disrupt existin
 The Open Tool Calling standard provides a robust framework for client-to-tool communications. By standardizing tool definitions, request formats, and response structures, this standard promotes interoperability, consistency, and security in distributed systems. Adoption of this standard will facilitate seamless integration between diverse clients and tools across multiple platforms.
 
 ## 9. References
+
+- JSON Schema Validation Specification, [http://json-schema.org](http://json-schema.org)
 
 - JSON Schema Validation Specification, [http://json-schema.org](http://json-schema.org)
