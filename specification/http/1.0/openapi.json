@@ -183,17 +183,6 @@
         "required": ["id", "value"],
         "additionalProperties": false
       },
-      "SimpleJSONSchema": {
-        "type": "object",
-        "additionalProperties": true,
-        "not": {
-          "properties": {
-            "$ref": {},
-            "$defs": {},
-            "definitions": {}
-          }
-        }
-      },
       "ToolDefinition": {
         "type": "object",
         "properties": {
@@ -206,66 +195,38 @@
             "pattern": "^[A-Za-z0-9_-]{1,64}$",
             "example": ["Calculator_Add", "Email_GetEmails"]
           },
-          "version": {
-            "$ref": "#/components/schemas/ToolVersion"
-          },
           "description": {
             "type": "string",
             "description": "A human-readable explanation of the tool's purpose. This field can be used by both humans and AI models."
+          },
+          "version": {
+            "$ref": "#/components/schemas/ToolVersion"
           },
           "input_schema": {
             "type": "object",
             "properties": {
               "parameters": {
-                "$ref": "#/components/schemas/SimpleJSONSchema",
-                "description": "JSON Schema describing the input parameters for the tool. Supports standard JSON Schema validation but excludes $ref and definitions/schemas for simplicity.",
+                "type": "object",
                 "additionalProperties": true,
-                "required": ["name", "description"]
+                "description": "JSON Schema describing the input parameters for the tool. Supports standard JSON Schema validation but excludes $ref and definitions/schemas for simplicity."
               }
             },
             "required": ["parameters"],
             "additionalProperties": false
           },
           "output_schema": {
-            "type": "object",
-            "properties": {
-              "mime_type": {
-                "type": "string",
-                "description": "The MIME type of the output that the tool returns, or 'none' if the tool returns no value (a void- or None-returning function).",
-                "enum": ["none", "application/json"]
-              },
-              "description": {
-                "type": "string",
-                "description": "A descriptive, human-readable explanation of the function's output."
-              }
-            },
-            "required": ["mime_type"],
-            "allOf": [
+            "oneOf": [
               {
-                "oneOf": [
-                  {
-                    "properties": {
-                      "mime_type": { "enum": ["none"] }
-                    }
-                  },
-                  {
-                    "properties": {
-                      "mime_type": { "enum": ["application/json"] },
-                      "value": {
-                        "type": "object",
-                        "properties": {
-                          "parameters": {
-                            "$ref": "#/components/schemas/SimpleJSONSchema",
-                            "description": "JSON Schema describing the output parameters for the tool. Supports standard JSON Schema validation but excludes $ref and definitions/schemas for simplicity."
-                          }
-                        }
-                      }
-                    }
-                  }
-                ]
+                "type": "object",
+                "additionalProperties": true,
+                "description": "JSON Schema describing the output parameters for the tool. Supports standard JSON Schema validation but excludes $ref and definitions/schemas for simplicity."
+              },
+              {
+                "type": "null",
+                "description": "Null indicates the tool does not return any value."
               }
             ],
-            "additionalProperties": false
+            "description": "Schema describing the output of the tool. Can be a JSON Schema object or null if the tool doesn't return a value."
           },
           "requirements": {
             "type": "object",

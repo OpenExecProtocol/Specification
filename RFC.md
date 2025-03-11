@@ -6,6 +6,8 @@
 
 This document specifies the Open Tool Calling (OTC) standard, a comprehensive communication protocol for AI agents (clients) calling tools. It defines the structures and protocols used to describe tools, initiate tool calls, and process responses. The standard is comprised of JSON and OpenAPI schemas that govern tool definitions, tool requests, and tool responses. It aims to provide a unified, extensible, and interoperable framework for client-to-tool interactions.
 
+The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and "OPTIONAL" in this document are to be interpreted as described in [BCP 14](https://datatracker.ietf.org/doc/html/bcp14) [[RFC2119]](https://datatracker.ietf.org/doc/html/rfc2119) [[RFC8174]](https://datatracker.ietf.org/doc/html/rfc8174) when, and only when, they appear in all capitals, as shown here.
+
 ## Editors
 
 - Nate Barbettini ([@nbarbettini](https://github.com/nbarbettini))
@@ -33,30 +35,28 @@ This document specifies the Open Tool Calling (OTC) standard, a comprehensive co
 
 ## 1. Introduction
 
-The Open Tool Calling standard establishes a set of protocols and formats to facilitate communication between agents (clients) and tools (functions or services) in distributed systems. It ensures that tool definitions, requests, and responses adhere to a structured and open standard. This RFC presents detailed JSON and OpenAPI schema specifications that serve as the backbone for this standard, enabling uniform interpretation and execution of tool interactions.
+The Open Tool Calling standard establishes a set of protocols and formats to facilitate communication between agents (clients) and tools (functions or services) in distributed systems. It ensures that tool definitions, requests, and responses adhere to a structured and open standard. This specification presents detailed JSON and OpenAPI schemas that serve as the backbone for this standard, enabling uniform interpretation and execution of tool interactions.
 
 ## 2. Terminology
 
 - **Client:** An entity that issues requests to tools for performing specific tasks.
+- **Server** (or Tool Server): An entity that hosts a collection of tools and processes tool calls.
 - **Tool:** A service or function that can be executed (called) by a client using the defined protocols.
-- **Schema:** A formal description of the data structure, typically expressed in JSON Schema, used to validate data formats.
-- **Toolkit:** A collection of tools grouped under a common framework and versioned accordingly.
-- **JSON Schema:** A vocabulary that allows you to annotate and validate JSON documents.
 
 ## 3. Architecture Overview
 
 The Open Tool Calling standard is designed around three key components:
 
-1. **Tool Definition:** A schema that specifies how a tool is described. It includes metadata such as the tool's name, unique identifier, toolkit information, and the input/output specifications.
-2. **Tool Request:** A schema that details the structure of a tool call. It encompasses the run identifier, execution context, tool metadata, and input parameters.
-3. **Tool Response:** A schema that outlines the structure of the response returned after a tool call. It provides details on execution status, duration, and the actual output (or errors) of the tool call.
+1. **Tool Definition:** A schema that specifies how a tool is described. It includes metadata such as the tool's name, unique identifier, and the input/output specifications.
+2. **Tool Request:** A schema that details the structure of a tool call. It encompasses the call identifier, execution context, tool metadata, and input parameters.
+3. **Tool Response:** A schema that outlines the structure of the response returned from a tool call. It provides details on execution status, duration, and the actual output (or errors) of the tool call.
 
 These components ensure consistent communication between clients and tools, regardless of the implementation details of each tool.
 
 ```mermaid
 sequenceDiagram
     participant C as Client
-    participant S as OTC Server
+    participant S as Tool Server
     participant T as Tool
 
     ## Health check
@@ -78,43 +78,36 @@ sequenceDiagram
 
 ## 4. Schema Definitions
 
-TODO: Add toolkit information, including a description of `version` (semver). Consider splitting `toolkit` into its own schema which is referenced from `ToolDefinition`.
-
 ### 4.1 Tool Definition Schema
 
 The Tool Definition Schema establishes the properties and required fields to describe a tool. It consists of the following sections:
 
 #### Metadata
 
-- **`id`**: A unique identifier for the tool, in the following format: `ToolkitName.ToolName@Version`. For example, `MyToolkit.MyTool@1.0.0`.
-- **`name`**: A human-readable name for the tool. For example, 'MyTool'.
-- **`description`**: A human-readable explanation of the tool's purpose. This field can be used by both humans and AI models.
-- **`version`**: The semantic version of the tool, e.g. `1.0.0`.
+- **`id`** (required): A unique identifier for the tool, in the following format: `ToolkitName.ToolName@Version`. For example, `Calculator.Add@1.0.0`. The `id` MUST be unique within the scope of the Tool Server.
+- **`name`** (required): A human-readable name for the tool. For example, `Add` or `Calculator_Add`. The name MUST contain only alphanumeric characters, underscores, and dashes, and be between 1 and 64 characters in length.
+- **`description`** (required): A human-readable explanation of the tool's purpose. This field SHOULD be used by both humans and AI models.
+- **`version`** (required): The semantic version of the tool, e.g. `1.0.0`. Multiple versions of the same tool MAY exist.
 
 #### Input Schema
 
-**`input`**: Describes the input parameters for the tool.
+**`input_schema`** (required): Describes the input parameters for the tool.
 
-- **`parameters`**: A JSON Schema object that describes the input parameters for the tool.
-- **`non_inferrable_parameters`** (optional): A list of parameter names that MUST NOT be inferred by a model. If this array is empty, it is assumed that all parameters are inferrable.
+- **`parameters`** (required): A JSON Schema object that describes the input parameters for the tool. This schema supports standard JSON Schema validation but excludes `$ref` and nested definitions/schemas for simplicity. The `parameters` field MUST be present, but MAY be an empty object.
 
-`non_inferrable_parameters` allows tool developers to "hide" certain parameters from an AI model. For example, a tool that has an `is_admin` parameter can indicate that this parameter is required but that a model should not be trusted to infer its value. In this case, the client is still responsible for passing the parameter.
+If present, each parameter in `parameters` MUST be a valid JSON Schema object and MUST contain a `description` field describing the parameter.
 
 #### Output Schema
 
-- **`output`** (optional): Specifies the expected result of the tool call.
-
-  - **`mime_type`**: The MIME type of the output. Supported values:
-    - **`none`**: The tool returns no value.
-    - **`application/json`**: The tool returns a JSON object.
-  - **`description`** (optional): Human-readable explanation of the output.
-  - **`value`** (optional): A JSON Schema object that describes the output parameters for the tool.
+**`output_schema`** (required): A JSON Schema object that describes the output parameters for the tool. `output_schema` MAY be an empty object indicating that the tool can return an unconstrained ("any") JSON value, and MAY be `null` indicating that the tool does not return any output.
 
 #### Requirements
 
-**`requirements`** (optional): Describes any requirements or prerequisites needed for the tool to execute (e.g. authorization, secrets, etc.)
+**`requirements`** (optional): Describes tool requirements that are not strictly input parameters, such as an API key needed to call a target API, or that a tool requires OAuth 2.0-based authorization.
 
-The `requirements` field describes tool requirements that are not strictly input parameters, such as the API key needed to call a target API. If the `requirements` field is not present, the client must assume that the tool can be executed without passing any additional information.
+If the `requirements` field is not present, the server MUST allow the tool to be executed without passing any additional information.
+
+If the `requirements` field and one or more sub-fields are present, the client MUST pass the required information in the `context` field of the `CallToolRequest` schema.
 
 **`requirements.authorization`** (optional): Declares one or more required authorization methods.
 
@@ -132,7 +125,193 @@ Each required secret is described as an object with the following properties:
 
 #### Non-Normative Examples
 
-TODO
+1. **Calculator.Add**
+
+   A tool that adds two numbers.
+
+   ```json
+   {
+     "id": "Calculator.Add@1.0.0",
+     "name": "Calculator_Add",
+     "description": "Adds two numbers together.",
+     "version": "1.0.0",
+     "input_schema": {
+       "parameters": {
+         "type": "object",
+         "properties": {
+           "a": {
+             "type": "number",
+             "description": "The first number to add."
+           },
+           "b": {
+             "type": "number",
+             "description": "The second number to add."
+           }
+         },
+         "required": ["a", "b"]
+       }
+     },
+     "output_schema": {
+       "type": "number",
+       "description": "The sum of the two numbers."
+     }
+   }
+   ```
+
+2. **Doorbell.Ring (No Output)**
+
+   A tool that rings a doorbell but produces no output parameters.
+
+   ```json
+   {
+     "id": "Doorbell.Ring@0.1.0",
+     "name": "Doorbell_Ring",
+     "description": "Rings a doorbell given a doorbell ID.",
+     "version": "0.1.0",
+     "input_schema": {
+       "parameters": {
+         "type": "object",
+         "properties": {
+           "doorbell_id": {
+             "type": "string",
+             "description": "The ID of the doorbell to ring."
+           }
+         },
+         "required": ["doorbell_id"]
+       }
+     },
+     "output_schema": null
+   }
+   ```
+
+3. **System.GetTimestamp (No Input)**
+
+   A tool that requires no input but produces a timestamp output.
+
+   ```json
+   {
+     "id": "System.GetTimestamp@1.0.0",
+     "name": "System_GetTimestamp",
+     "description": "Retrieves the current system timestamp.",
+     "version": "1.0.0",
+     "input_schema": {
+       "parameters": {
+         "type": "object"
+       }
+     },
+     "output_schema": {
+       "type": "object",
+       "properties": {
+         "timestamp": {
+           "type": "string",
+           "format": "date-time",
+           "description": "The current system timestamp."
+         }
+       },
+       "required": ["timestamp"]
+     }
+   }
+   ```
+
+4. **Gmail.GetEmails (OAuth 2.0 Authorization)**
+
+   A tool that retrieves emails from Gmail using OAuth 2.0 for authorization.
+
+   ```json
+   {
+     "id": "Gmail.GetEmails@1.2.0",
+     "name": "Gmail_GetEmails",
+     "description": "Retrieves emails from Gmail using OAuth 2.0 authentication.",
+     "version": "1.2.0",
+     "input_schema": {
+       "parameters": {
+         "type": "object",
+         "properties": {
+           "query": {
+             "type": "string",
+             "description": "Search query for filtering emails."
+           }
+         },
+         "required": []
+       }
+     },
+     "output_schema": {
+       "type": "object",
+       "properties": {
+         "emails": {
+           "type": "array",
+           "items": {
+             "type": "object",
+             "properties": {
+               "id": { "type": "string" },
+               "subject": { "type": "string" },
+               "snippet": { "type": "string" }
+             },
+             "required": ["id", "subject", "snippet"]
+           },
+           "description": "List of retrieved emails."
+         }
+       },
+       "required": ["emails"]
+     },
+     "requirements": {
+       "authorization": [
+         {
+           "id": "google",
+           "oauth2": {
+             "scopes": ["https://www.googleapis.com/auth/gmail.readonly"]
+           }
+         }
+       ]
+     }
+   }
+   ```
+
+5. **SMS.Send (Secret Requirement)**
+
+   A tool that sends SMS messages using Twilio and requires a `TWILIO_API_KEY` secret.
+
+   ```json
+   {
+     "id": "SMS.Send@0.1.2",
+     "name": "SMS_Send",
+     "description": "Sends SMS messages using Twilio. Requires a valid TWILIO_API_KEY.",
+     "version": "0.1.2",
+     "input_schema": {
+       "parameters": {
+         "type": "object",
+         "properties": {
+           "to": {
+             "type": "string",
+             "description": "Recipient phone number."
+           },
+           "message": {
+             "type": "string",
+             "description": "Message content to send."
+           }
+         },
+         "required": ["to", "message"]
+       }
+     },
+     "output_schema": {
+       "type": "object",
+       "properties": {
+         "status": {
+           "type": "string",
+           "description": "Status of the SMS sending operation."
+         }
+       },
+       "required": ["status"]
+     },
+     "requirements": {
+       "secrets": [
+         {
+           "id": "TWILIO_API_KEY"
+         }
+       ]
+     }
+   }
+   ```
 
 ### 4.2 Tool Request Schema
 
