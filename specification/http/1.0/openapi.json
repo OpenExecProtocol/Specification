@@ -148,7 +148,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ValidationFailedResponse"
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
                 }
               }
             }
@@ -354,7 +354,7 @@
               },
               "user_id": {
                 "type": "string",
-                "description": "A unique ID that identifies the user, if present."
+                "description": "A unique ID that identifies the user, if required by the tool."
               }
             },
             "additionalProperties": true
@@ -385,22 +385,16 @@
             "properties": {
               "success": { "enum": [true] },
               "value": {
-                "description": "The value returned from the tool.",
-                "oneOf": [
-                  {
-                    "type": "object",
-                    "additionalProperties": true
-                  },
-                  {
-                    "type": "number"
-                  },
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "boolean"
-                  }
-                ]
+                "type": [
+                  "object",
+                  "array",
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ],
+                "additionalProperties": true,
+                "description": "The value returned from the tool."
               }
             },
             "not": { "required": ["error"] }
@@ -409,33 +403,7 @@
             "properties": {
               "success": { "enum": [false] },
               "error": {
-                "type": "object",
-                "description": "An error that occurred inside the tool function.",
-                "properties": {
-                  "message": {
-                    "type": "string",
-                    "description": "An error message that can be shown to the user or the AI model."
-                  },
-                  "developer_message": {
-                    "type": "string",
-                    "description": "An internal message that will be logged but will not be shown to the user or the AI model"
-                  },
-                  "can_retry": {
-                    "type": "boolean",
-                    "description": "Whether the tool call can be retried by the client.",
-                    "default": false
-                  },
-                  "additional_prompt_content": {
-                    "type": "string",
-                    "description": "Additional content to be included in the retry prompt."
-                  },
-                  "retry_after_ms": {
-                    "type": "integer",
-                    "description": "The number of milliseconds (if any) to wait before retrying the tool call."
-                  }
-                },
-                "required": ["message"],
-                "additionalProperties": false
+                "$ref": "#/components/schemas/ToolError"
               }
             },
             "required": ["error"],
@@ -463,7 +431,7 @@
         "required": ["message"],
         "additionalProperties": false
       },
-      "ValidationFailedResponse": {
+      "ValidationErrorResponse": {
         "type": "object",
         "properties": {
           "$schema": {
@@ -477,6 +445,35 @@
           "parameter_errors": {
             "type": "object",
             "description": "A map of parameter names to error messages, if parameter-level errors are present."
+          }
+        },
+        "required": ["message"],
+        "additionalProperties": false
+      },
+      "ToolError": {
+        "type": "object",
+        "description": "An error that occurred inside the tool function.",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "An error message that can be shown to the user or the AI model."
+          },
+          "developer_message": {
+            "type": "string",
+            "description": "An internal message that will be logged but will not be shown to the user or the AI model"
+          },
+          "can_retry": {
+            "type": "boolean",
+            "description": "Whether the tool call can be retried by the client.",
+            "default": false
+          },
+          "additional_prompt_content": {
+            "type": "string",
+            "description": "Additional content to be included in the retry prompt."
+          },
+          "retry_after_ms": {
+            "type": "integer",
+            "description": "The number of milliseconds (if any) to wait before retrying the tool call."
           }
         },
         "required": ["message"],

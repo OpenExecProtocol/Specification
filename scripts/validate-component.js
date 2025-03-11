@@ -45,16 +45,10 @@ function validateAgainstSchema(jsonData, schemaName) {
 
 // Example usage
 const jsonToValidate = {
-  call_id: "723e4567-e89b-12d3-a456-426614174006",
-  duration: 60,
-  success: false,
-  error: {
-    message: "Doorbell ID not found",
-    developer_message: "The doorbell with ID 'doorbell1' does not exist.",
-    can_retry: true,
-    additional_prompt_content: "available_ids: doorbell42,doorbell84",
-    retry_after_ms: 500,
-  },
+  call_id: "123e4567-e89b-12d3-a456-426614174000",
+  duration: 2,
+  success: true,
+  value: 3,
 };
 
 const result = validateAgainstSchema(jsonToValidate, "CallToolResponse");
