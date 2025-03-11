@@ -124,7 +124,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/BadRequestResponse"
+                  "$ref": "#/components/schemas/ServerErrorResponse"
                 }
               }
             }
@@ -134,7 +134,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ValidationResponse"
+                  "$ref": "#/components/schemas/ValidationFailedResponse"
                 }
               }
             }
@@ -155,12 +155,18 @@
       "ToolId": {
         "type": "string",
         "description": "A tool's unique identifier in the format 'Toolkit.Tool[@version]', where @version is optional.",
-        "pattern": "^[A-Za-z0-9_]+\\.[A-Za-z0-9_]+(@[A-Za-z0-9_.\\-]+)?$",
+        "pattern": "^[A-Za-z0-9_]+\\.[A-Za-z0-9_]+(@([0-9]+|[0-9]+\\.[0-9]+\\.[0-9]+))?$",
         "example": [
-          "MyToolkit.MyTool",
-          "MyToolkit.MyTool@1.0",
-          "Calculator.Add@latest"
+          "Calculator.Add",
+          "Calculator.Add@1",
+          "Calculator.Add@1.0.0"
         ]
+      },
+      "ToolVersion": {
+        "type": "string",
+        "description": "A tool's semantic version in the format 'x.y.z', where x, y, and z are integers.",
+        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+        "example": "1.2.3"
       },
       "ToolSecret": {
         "type": "object",
@@ -196,30 +202,16 @@
           },
           "name": {
             "type": "string",
-            "description": "The tool's name."
+            "description": "The tool's name. Only allows alphanumeric characters, underscores, and dashes.",
+            "pattern": "^[A-Za-z0-9_-]{1,64}$",
+            "example": ["Calculator_Add", "Email_GetEmails"]
+          },
+          "version": {
+            "$ref": "#/components/schemas/ToolVersion"
           },
           "description": {
             "type": "string",
             "description": "A human-readable explanation of the tool's purpose. This field can be used by both humans and AI models."
-          },
-          "toolkit": {
-            "type": "object",
-            "properties": {
-              "name": {
-                "type": "string",
-                "description": "The name of the toolkit."
-              },
-              "description": {
-                "type": "string",
-                "description": "A human-readable description of the toolkit."
-              },
-              "version": {
-                "type": "string",
-                "description": "An identifier for this version of the toolkit."
-              }
-            },
-            "required": ["name", "description"],
-            "additionalProperties": false
           },
           "input_schema": {
             "type": "object",
@@ -237,45 +229,35 @@
           "output_schema": {
             "type": "object",
             "properties": {
-              "possible_kinds": {
-                "type": "array",
-                "description": "The kinds of output that the tool can return: none (a void- or None-returning function), or json (a function that returns a JSON-like value).",
-                "items": {
-                  "type": "string",
-                  "enum": ["none", "json"]
-                }
+              "mime_type": {
+                "type": "string",
+                "description": "The MIME type of the output that the tool returns, or 'none' if the tool returns no value (a void- or None-returning function).",
+                "enum": ["none", "application/json"]
               },
               "description": {
                 "type": "string",
                 "description": "A descriptive, human-readable explanation of the function's output."
-              },
-              "json": {
-                "type": "object",
-                "properties": {
-                  "parameters": {
-                    "$ref": "#/components/schemas/SimpleJSONSchema",
-                    "description": "JSON Schema describing the output parameters for the tool. Supports standard JSON Schema validation but excludes $ref and definitions/schemas for simplicity."
-                  }
-                }
               }
             },
-            "required": ["possible_kinds"],
+            "required": ["mime_type"],
             "allOf": [
               {
                 "oneOf": [
                   {
                     "properties": {
-                      "possible_kinds": {
-                        "contains": { "const": "json" }
-                      }
-                    },
-                    "required": ["json"]
+                      "mime_type": { "enum": ["none"] }
+                    }
                   },
                   {
-                    "not": {
-                      "properties": {
-                        "possible_kinds": {
-                          "contains": { "const": "json" }
+                    "properties": {
+                      "mime_type": { "enum": ["application/json"] },
+                      "value": {
+                        "type": "object",
+                        "properties": {
+                          "parameters": {
+                            "$ref": "#/components/schemas/SimpleJSONSchema",
+                            "description": "JSON Schema describing the output parameters for the tool. Supports standard JSON Schema validation but excludes $ref and definitions/schemas for simplicity."
+                          }
                         }
                       }
                     }
@@ -337,7 +319,6 @@
           "id",
           "name",
           "description",
-          "toolkit",
           "input_schema",
           "output_schema"
         ],
@@ -348,7 +329,7 @@
         "properties": {
           "call_id": {
             "type": "string",
-            "description": "The unique identifier (e.g. UUID) for this tool call. Used as an idempotency key."
+            "description": "A unique identifier (e.g. UUID) for this tool call. Used as an idempotency key. If omitted, the server will generate an ID."
           },
           "trace_id": {
             "type": "string",
@@ -421,59 +402,80 @@
           "success": {
             "type": "boolean",
             "description": "Whether the tool call was successful. If the `error` field is present, this field will be false."
-          },
-          "json": {
-            "description": "The JSON object returned from the tool.",
-            "oneOf": [
-              {
-                "type": "object",
-                "additionalProperties": true
-              },
-              {
-                "type": "number"
-              },
-              {
-                "type": "string"
-              },
-              {
-                "type": "boolean"
-              }
-            ]
-          },
-          "error": {
-            "type": "object",
-            "description": "An error that occurred inside the tool function.",
-            "properties": {
-              "message": {
-                "type": "string",
-                "description": "An error message that can be shown to the user or the AI model."
-              },
-              "developer_message": {
-                "type": "string",
-                "description": "An internal message that will be logged but will not be shown to the user or the AI model"
-              },
-              "can_retry": {
-                "type": "boolean",
-                "description": "Whether the tool call can be retried by the client.",
-                "default": false
-              },
-              "additional_prompt_content": {
-                "type": "string",
-                "description": "Additional content to be included in the retry prompt."
-              },
-              "retry_after_ms": {
-                "type": "integer",
-                "description": "The number of milliseconds (if any) to wait before retrying the tool call."
-              }
-            },
-            "required": ["message"],
-            "additionalProperties": false
           }
         },
         "required": ["call_id", "success"],
+        "oneOf": [
+          {
+            "properties": {
+              "success": { "enum": [true] },
+              "mime_type": {
+                "type": "string",
+                "description": "The MIME type of the output, or 'none' if the tool returns no value (a void- or None-returning function).",
+                "enum": ["none", "application/json"]
+              },
+              "value": {
+                "description": "The value returned from the tool.",
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ]
+              }
+            },
+            "required": ["mime_type", "value"],
+            "not": { "required": ["error"] }
+          },
+          {
+            "properties": {
+              "success": { "enum": [false] },
+              "error": {
+                "type": "object",
+                "description": "An error that occurred inside the tool function.",
+                "properties": {
+                  "message": {
+                    "type": "string",
+                    "description": "An error message that can be shown to the user or the AI model."
+                  },
+                  "developer_message": {
+                    "type": "string",
+                    "description": "An internal message that will be logged but will not be shown to the user or the AI model"
+                  },
+                  "can_retry": {
+                    "type": "boolean",
+                    "description": "Whether the tool call can be retried by the client.",
+                    "default": false
+                  },
+                  "additional_prompt_content": {
+                    "type": "string",
+                    "description": "Additional content to be included in the retry prompt."
+                  },
+                  "retry_after_ms": {
+                    "type": "integer",
+                    "description": "The number of milliseconds (if any) to wait before retrying the tool call."
+                  }
+                },
+                "required": ["message"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["error"],
+            "not": { "required": ["mime_type", "value"] }
+          }
+        ],
         "additionalProperties": false
       },
-      "BadRequestResponse": {
+      "ServerErrorResponse": {
         "type": "object",
         "properties": {
           "message": {
@@ -484,7 +486,7 @@
         "required": ["message"],
         "additionalProperties": false
       },
-      "ValidationResponse": {
+      "ValidationFailedResponse": {
         "type": "object",
         "properties": {
           "message": {

@@ -89,10 +89,7 @@ The Tool Definition Schema establishes the properties and required fields to des
 - **`id`**: A unique identifier for the tool, in the following format: `ToolkitName.ToolName@Version`. For example, `MyToolkit.MyTool@1.0.0`.
 - **`name`**: A human-readable name for the tool. For example, 'MyTool'.
 - **`description`**: A human-readable explanation of the tool's purpose. This field can be used by both humans and AI models.
-
-#### Toolkit Information
-
-- **`toolkit`**: Contains the toolkit's name, description, and version.
+- **`version`**: The semantic version of the tool, e.g. `1.0.0`.
 
 #### Input Schema
 
@@ -107,10 +104,9 @@ The Tool Definition Schema establishes the properties and required fields to des
 
 - **`output`** (optional): Specifies the expected result of the tool call.
 
-  - **`available_modes`**: A list of one or more possible output modes: `value`, `error`, `null`.
-    - **`value`**: The tool may return a value. If this mode is present, the `value` field MUST be present.
-    - **`error`**: The tool may return an error.
-    - **`null`**: The tool may return no value.
+  - **`mime_type`**: The MIME type of the output. Supported values:
+    - **`none`**: The tool returns no value.
+    - **`application/json`**: The tool returns a JSON object.
   - **`description`** (optional): Human-readable explanation of the output.
   - **`value`** (optional): A JSON Schema object that describes the output parameters for the tool.
 
@@ -170,7 +166,7 @@ TODO
 
 #### Tool Version Resolution
 
-TODO - describe how the server will resolve the version of the tool to call, including the special keyword `latest` and the behavior when a version is not specified (also `latest`).
+TODO - describe how the server will resolve the version of the tool to call: both simple versions (`@1`) and semantic versions (`@1.0.0`).
 
 #### Non-Normative Examples
 
@@ -324,6 +320,8 @@ Tool execution is initiated by sending a POST request to the `/call` endpoint. T
 
 TODO: $schema is not required for the request, but is recommended to ensure compatibility with future versions of the standard. The server must assume the request conforms to the latest version of the standard if `$schema` is not present.
 
+TODO: Server errors (before tool is called) must result in 400 or 422. Once the tool is called, the server MUST return a 200 response with an error (`success: false`).
+
 #### Non-Normative Example: Tool Call
 
 **Request:**
@@ -362,6 +360,8 @@ Authorization: Bearer <JWT token>
 ```
 
 **Response (Error Case):**
+
+TODO Clean up example
 
 ```json
 {
