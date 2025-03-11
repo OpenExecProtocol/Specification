@@ -79,6 +79,9 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Unauthorized. The request requires authentication, but the provided credentials are invalid or missing."
           }
         }
       }
@@ -143,6 +146,9 @@
               }
             }
           },
+          "401": {
+            "description": "Unauthorized. The request requires authentication, but the provided credentials are invalid or missing."
+          },
           "422": {
             "description": "The tool call is valid, but the parameters are invalid (missing, incorrect type, etc).",
             "content": {
@@ -195,7 +201,7 @@
           }
         },
         "required": ["id", "value"],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "ToolDefinition": {
         "type": "object",
@@ -226,7 +232,7 @@
               }
             },
             "required": ["parameters"],
-            "additionalProperties": false
+            "additionalProperties": true
           },
           "output_schema": {
             "oneOf": [
@@ -265,12 +271,12 @@
                           }
                         }
                       },
-                      "additionalProperties": false
+                      "additionalProperties": true
                     }
                   }
                 },
                 "required": ["id"],
-                "additionalProperties": false
+                "additionalProperties": true
               },
               "secrets": {
                 "type": "array",
@@ -283,7 +289,7 @@
                     }
                   },
                   "required": ["id"],
-                  "additionalProperties": false
+                  "additionalProperties": true
                 }
               },
               "user_id": {
@@ -291,7 +297,7 @@
                 "description": "Whether the tool requires a user ID."
               }
             },
-            "additionalProperties": false
+            "additionalProperties": true
           }
         },
         "required": [
@@ -341,7 +347,7 @@
                     }
                   },
                   "required": ["id", "token"],
-                  "additionalProperties": false
+                  "additionalProperties": true
                 }
               },
               "secrets": {
@@ -410,7 +416,7 @@
             "not": { "required": ["value"] }
           }
         ],
-        "additionalProperties": true
+        "additionalProperties": false
       },
       "ServerErrorResponse": {
         "type": "object",
@@ -429,7 +435,7 @@
           }
         },
         "required": ["message"],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "ValidationErrorResponse": {
         "type": "object",
@@ -448,7 +454,7 @@
           }
         },
         "required": ["message"],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "ToolError": {
         "type": "object",
@@ -460,7 +466,7 @@
           },
           "developer_message": {
             "type": "string",
-            "description": "An internal message that will be logged but will not be shown to the user or the AI model"
+            "description": "An internal message that will be logged but will not be shown to the user or the AI model."
           },
           "can_retry": {
             "type": "boolean",
@@ -477,7 +483,7 @@
           }
         },
         "required": ["message"],
-        "additionalProperties": false
+        "additionalProperties": true
       }
     }
   }
