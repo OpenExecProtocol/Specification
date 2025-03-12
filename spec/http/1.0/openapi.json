@@ -215,7 +215,7 @@
           },
           "description": {
             "type": "string",
-            "description": "A human-readable explanation of the tool's purpose. This field can be used by both humans and AI models."
+            "description": "A plain language explanation of when and how the tool should be used."
           },
           "version": {
             "$ref": "#/components/schemas/ToolVersion"
