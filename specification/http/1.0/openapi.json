@@ -1,0 +1,488 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Open Tool Calling Standard",
+    "version": "1.0.0",
+    "description": "A standard for calling tools (functions or services) in a distributed system.",
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    },
+    "contact": {
+      "url": "https://opentoolcalling.org"
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "health-check",
+        "summary": "Check health",
+        "description": "Checks the health status of the server.",
+        "security": [{}],
+        "responses": {
+          "200": {
+            "description": "Server is healthy."
+          },
+          "503": {
+            "description": "Server is unhealthy and cannot accept requests."
+          }
+        }
+      }
+    },
+    "/tools": {
+      "get": {
+        "operationId": "list-tools",
+        "summary": "List tools",
+        "description": "Returns a list of tool definitions.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {}
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "$schema": {
+                    "type": "string",
+                    "format": "uri"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "A list of available tools.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "$schema": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "tools": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ToolDefinition"
+                      }
+                    }
+                  },
+                  "required": ["tools"]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized. The request requires authentication, but the provided credentials are invalid or missing."
+          }
+        }
+      }
+    },
+    "/tools/call": {
+      "post": {
+        "operationId": "call-tool",
+        "summary": "Call tool",
+        "description": "Calls a tool with the given parameters.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "$schema": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "request": {
+                    "$ref": "#/components/schemas/CallToolRequest"
+                  }
+                },
+                "required": ["request"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Response from tool.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "$schema": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "result": {
+                      "$ref": "#/components/schemas/CallToolResponse"
+                    }
+                  },
+                  "required": ["result"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid or could not be processed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized. The request requires authentication, but the provided credentials are invalid or missing."
+          },
+          "422": {
+            "description": "The tool call is valid, but the parameters are invalid (missing, incorrect type, etc).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "ToolId": {
+        "type": "string",
+        "description": "A tool's unique identifier in the format 'Toolkit.Tool[@version]', where @version is optional.",
+        "pattern": "^[A-Za-z0-9_]+\\.[A-Za-z0-9_]+(@([0-9]+|[0-9]+\\.[0-9]+\\.[0-9]+))?$",
+        "example": [
+          "Calculator.Add",
+          "Calculator.Add@1",
+          "Calculator.Add@1.0.0"
+        ]
+      },
+      "ToolVersion": {
+        "type": "string",
+        "description": "A tool's semantic version in the format 'x.y.z', where x, y, and z are integers.",
+        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+        "example": "1.2.3"
+      },
+      "ToolSecret": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The secret's unique identifier."
+          },
+          "value": {
+            "type": "string",
+            "description": "The secret's value."
+          }
+        },
+        "required": ["id", "value"],
+        "additionalProperties": true
+      },
+      "ToolDefinition": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/ToolId"
+          },
+          "name": {
+            "type": "string",
+            "description": "The tool's name. Only allows alphanumeric characters, underscores, and dashes.",
+            "pattern": "^[A-Za-z0-9_-]{1,64}$",
+            "example": ["Calculator_Add", "Email_GetEmails"]
+          },
+          "description": {
+            "type": "string",
+            "description": "A human-readable explanation of the tool's purpose. This field can be used by both humans and AI models."
+          },
+          "version": {
+            "$ref": "#/components/schemas/ToolVersion"
+          },
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "parameters": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "JSON Schema describing the input parameters for the tool. Supports standard JSON Schema validation but excludes $ref and definitions/schemas for simplicity."
+              }
+            },
+            "required": ["parameters"],
+            "additionalProperties": true
+          },
+          "output_schema": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "JSON Schema describing the output parameters for the tool. Supports standard JSON Schema validation but excludes $ref and definitions/schemas for simplicity."
+              },
+              {
+                "type": "null",
+                "description": "Null indicates the tool does not return any value."
+              }
+            ],
+            "description": "Schema describing the output of the tool. Can be a JSON Schema object or null if the tool doesn't return a value."
+          },
+          "requirements": {
+            "type": "object",
+            "properties": {
+              "authorization": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "A provider's unique identifier, allowing the tool to specify a specific authorization provider."
+                    },
+                    "oauth2": {
+                      "type": "object",
+                      "description": "OAuth 2.0-specific authorization details.",
+                      "properties": {
+                        "scopes": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "additionalProperties": true
+                    }
+                  }
+                },
+                "required": ["id"],
+                "additionalProperties": true
+              },
+              "secrets": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "The secret's unique identifier."
+                    }
+                  },
+                  "required": ["id"],
+                  "additionalProperties": true
+                }
+              },
+              "user_id": {
+                "type": "boolean",
+                "description": "Whether the tool requires a user ID."
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "input_schema",
+          "output_schema"
+        ],
+        "additionalProperties": false
+      },
+      "CallToolRequest": {
+        "type": "object",
+        "properties": {
+          "call_id": {
+            "type": "string",
+            "description": "A unique identifier (e.g. UUID) for this tool call. Used as an idempotency key. If omitted, the server will generate an ID."
+          },
+          "trace_id": {
+            "type": "string",
+            "description": "An optional trace identifier for the tool call."
+          },
+          "tool_id": {
+            "$ref": "#/components/schemas/ToolId"
+          },
+          "input": {
+            "type": "object",
+            "description": "The input parameters for the tool call.",
+            "additionalProperties": true
+          },
+          "context": {
+            "type": "object",
+            "properties": {
+              "authorization": {
+                "type": "array",
+                "description": "The authorization information for the tool call.",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "The unique identifier for the authorization method or authorization provider."
+                    },
+                    "token": {
+                      "type": "string",
+                      "description": "The token for the tool call."
+                    }
+                  },
+                  "required": ["id", "token"],
+                  "additionalProperties": true
+                }
+              },
+              "secrets": {
+                "type": "array",
+                "description": "The secrets for the tool call.",
+                "items": {
+                  "$ref": "#/components/schemas/ToolSecret"
+                },
+                "additionalProperties": true
+              },
+              "user_id": {
+                "type": "string",
+                "description": "A unique ID that identifies the user, if required by the tool."
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "required": ["tool_id"],
+        "additionalProperties": false
+      },
+      "CallToolResponse": {
+        "type": "object",
+        "properties": {
+          "call_id": {
+            "type": "string",
+            "description": "The unique identifier (e.g. UUID) for this tool call. If an ID is not provided by the client, the server will generate one."
+          },
+          "duration": {
+            "type": "number",
+            "description": "The runtime duration of the tool call, in milliseconds"
+          },
+          "success": {
+            "type": "boolean",
+            "description": "Whether the tool call was successful. If the `error` field is present, this field will be false."
+          }
+        },
+        "required": ["call_id", "success"],
+        "oneOf": [
+          {
+            "properties": {
+              "success": { "enum": [true] },
+              "value": {
+                "type": [
+                  "object",
+                  "array",
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ],
+                "additionalProperties": true,
+                "description": "The value returned from the tool."
+              }
+            },
+            "not": { "required": ["error"] }
+          },
+          {
+            "properties": {
+              "success": { "enum": [false] },
+              "error": {
+                "$ref": "#/components/schemas/ToolError"
+              }
+            },
+            "required": ["error"],
+            "not": { "required": ["value"] }
+          }
+        ],
+        "additionalProperties": false
+      },
+      "ServerErrorResponse": {
+        "type": "object",
+        "properties": {
+          "$schema": {
+            "type": "string",
+            "format": "uri"
+          },
+          "message": {
+            "type": "string",
+            "description": "The error message."
+          },
+          "developer_message": {
+            "type": "string",
+            "description": "An internal message that will be logged but will not be shown to the user or the AI model"
+          }
+        },
+        "required": ["message"],
+        "additionalProperties": true
+      },
+      "ValidationErrorResponse": {
+        "type": "object",
+        "properties": {
+          "$schema": {
+            "type": "string",
+            "format": "uri"
+          },
+          "message": {
+            "type": "string",
+            "description": "The error message."
+          },
+          "parameter_errors": {
+            "type": "object",
+            "description": "A map of parameter names to error messages, if parameter-level errors are present."
+          }
+        },
+        "required": ["message"],
+        "additionalProperties": true
+      },
+      "ToolError": {
+        "type": "object",
+        "description": "An error that occurred inside the tool function.",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "An error message that can be shown to the user or the AI model."
+          },
+          "developer_message": {
+            "type": "string",
+            "description": "An internal message that will be logged but will not be shown to the user or the AI model."
+          },
+          "can_retry": {
+            "type": "boolean",
+            "description": "Whether the tool call can be retried by the client.",
+            "default": false
+          },
+          "additional_prompt_content": {
+            "type": "string",
+            "description": "Additional content to be included in the retry prompt."
+          },
+          "retry_after_ms": {
+            "type": "integer",
+            "description": "The number of milliseconds (if any) to wait before retrying the tool call."
+          }
+        },
+        "required": ["message"],
+        "additionalProperties": true
+      }
+    }
+  }
+}

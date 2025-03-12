@@ -1,0 +1,16 @@
+name: API linting
+
+on: [pull_request]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up node
+        uses: actions/setup-node@v4
+      - name: Install Redocly CLI
+        run: npm install -g @redocly/cli@latest
+      - name: Run linting
+        run: redocly lint "specification/**/openapi.json" --format=github-actions
