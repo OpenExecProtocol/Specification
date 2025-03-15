@@ -66,14 +66,14 @@
                       "type": "string",
                       "format": "uri"
                     },
-                    "tools": {
+                    "items": {
                       "type": "array",
                       "items": {
                         "$ref": "#/components/schemas/ToolDefinition"
                       }
                     }
                   },
-                  "required": ["tools"]
+                  "required": ["items"]
                 }
               }
             }
@@ -222,15 +222,8 @@
           },
           "input_schema": {
             "type": "object",
-            "properties": {
-              "parameters": {
-                "type": "object",
-                "additionalProperties": true,
-                "description": "JSON Schema describing the input parameters for the tool. Supports standard JSON Schema validation but excludes $ref and definitions/schemas for simplicity."
-              }
-            },
-            "required": ["parameters"],
-            "additionalProperties": true
+            "additionalProperties": true,
+            "description": "JSON Schema describing the input parameters for the tool. Supports standard JSON Schema validation but excludes $ref and definitions/schemas for simplicity."
           },
           "output_schema": {
             "oneOf": [
@@ -298,13 +291,7 @@
             "additionalProperties": true
           }
         },
-        "required": [
-          "id",
-          "name",
-          "description",
-          "input_schema",
-          "output_schema"
-        ],
+        "required": ["id", "name", "description", "version"],
         "additionalProperties": false
       },
       "CallToolRequest": {
@@ -430,6 +417,23 @@
           "developer_message": {
             "type": "string",
             "description": "An internal message that will be logged but will not be shown to the user or the AI model"
+          },
+          "missing_requirements": {
+            "type": "object",
+            "description": "A map of missing requirements.",
+            "properties": {
+              "authorization": {
+                "type": "array",
+                "description": "A list of authorization challenges that must be completed before the tool can be called.",
+                "items": {
+                  "$ref": "#/components/schemas/ToolAuthorizationChallenge"
+                }
+              },
+              "user_id": {
+                "type": "boolean",
+                "description": "Whether the tool requires a user ID."
+              }
+            }
           }
         },
         "required": ["message"],
@@ -453,6 +457,25 @@
         },
         "required": ["message"],
         "additionalProperties": true
+      },
+      "ToolAuthorizationChallenge": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The unique identifier for the authorization challenge."
+          },
+          "url": {
+            "type": "string",
+            "description": "The URL the user must visit to complete the authorization challenge."
+          },
+          "check_url": {
+            "type": "string",
+            "description": "The URL to check the status of the authorization challenge."
+          }
+        },
+        "required": ["id", "url"],
+        "additionalProperties": false
       },
       "ToolError": {
         "type": "object",
