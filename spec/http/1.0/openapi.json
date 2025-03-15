@@ -1,7 +1,7 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Open Tool Calling Standard",
+    "title": "Open eXecution Protocol (OXP) Standard",
     "version": "1.0.0",
     "description": "A standard for calling tools (functions or services) in a distributed system.",
     "license": {
@@ -9,7 +9,7 @@
       "url": "https://opensource.org/licenses/MIT"
     },
     "contact": {
-      "url": "https://opentoolcalling.org"
+      "url": "https://openexecprotocol.org"
     }
   },
   "paths": {
