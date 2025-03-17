@@ -6,3 +6,5 @@ spec/http/1.0/openapi.json:
   operation-4xx-response:
     - '#/paths/~1health/get/responses'
     - '#/paths/~1tools/get/responses'
+  no-unused-components:
+    - '#/components/schemas/AuthorizationChallengeCheckResponse'

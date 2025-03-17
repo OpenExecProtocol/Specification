@@ -477,6 +477,18 @@
         "required": ["id", "url"],
         "additionalProperties": false
       },
+      "AuthorizationChallengeCheckResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "The status of the authorization challenge.",
+            "enum": ["pending", "completed", "failed"]
+          }
+        },
+        "required": ["status"],
+        "additionalProperties": true
+      },
       "ToolError": {
         "type": "object",
         "description": "An error that occurred inside the tool function.",
