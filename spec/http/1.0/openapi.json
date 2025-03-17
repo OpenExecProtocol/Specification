@@ -34,7 +34,12 @@
             }
           },
           "503": {
-            "description": "Server is unhealthy and cannot accept requests."
+            "description": "Server is unhealthy and cannot accept requests.",
+            "headers": {
+              "OXP-Version": {
+                "$ref": "#/components/headers/OXPServerHeader"
+              }
+            }
           }
         }
       }
